@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,10 +15,9 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM")) return;
+if(!defined("PHORUM")) return;
 
 // Check if the user is allowed to post a new message or a reply.
 if( ($mode == "post" && !phorum_api_user_check_access(PHORUM_USER_ALLOW_NEW_TOPIC)) ||
@@ -31,7 +31,7 @@ if( ($mode == "post" && !phorum_api_user_check_access(PHORUM_USER_ALLOW_NEW_TOPI
             ($mode == "post" && $PHORUM["reg_perms"] & PHORUM_USER_ALLOW_NEW_TOPIC) ) {
             $PHORUM["DATA"]["OKMSG"] = $PHORUM["DATA"]["LANG"]["PleaseLoginPost"];
             $PHORUM["DATA"]["CLICKHEREMSG"] = $PHORUM["DATA"]["LANG"]["ClickHereToLogin"];
-            $PHORUM["DATA"]["URL"]["CLICKHERE"] = phorum_api_url(PHORUM_LOGIN_URL);
+            $PHORUM["DATA"]["URL"]["CLICKHERE"] = phorum_get_url(PHORUM_LOGIN_URL);
         } else {
             $PHORUM["DATA"]["ERROR"] = $PHORUM["DATA"]["LANG"]["NoPost"];
         }
@@ -50,9 +50,8 @@ if( ($mode == "post" && !phorum_api_user_check_access(PHORUM_USER_ALLOW_NEW_TOPI
         $args = array(PHORUM_REPLY_URL, $PHORUM["args"][1]);
         if (isset($PHORUM["args"][2])) $args[] = $PHORUM["args"][2];
         if (isset($PHORUM["args"]["quote"])) $args[] = "quote=1";
-        phorum_api_url; // Make sure the URL API layer code is loaded.
-        $redir = urlencode(call_user_func_array('phorum_api_url', $args));
-        $url = phorum_api_url(PHORUM_LOGIN_URL, "redir=$redir");
+        $redir = urlencode(call_user_func_array('phorum_get_url', $args));
+        $url = phorum_get_url(PHORUM_LOGIN_URL, "redir=$redir");
 
         $PHORUM["DATA"]["URL"]["CLICKHERE"] = $url;
         $PHORUM["DATA"]["CLICKHEREMSG"] = $PHORUM["DATA"]["LANG"]["ClickHereToLogin"];
@@ -69,10 +68,11 @@ if( ($mode == "post" && !phorum_api_user_check_access(PHORUM_USER_ALLOW_NEW_TOPI
         if (isset($PHORUM["args"][1])) $args[] = $PHORUM["args"][1];
         if (isset($PHORUM["args"][2])) $args[] = $PHORUM["args"][2];
         if (isset($PHORUM["args"]["quote"])) $args[] = "quote=1";
-        phorum_api_url; // Make sure the URL API layer code is loaded.
-        $redir = urlencode(call_user_func_array('phorum_api_url', $args));
+        $redir = urlencode(call_user_func_array('phorum_get_url', $args));
 
-        phorum_api_redirect(PHORUM_LOGIN_URL,"redir=$redir");
+        phorum_redirect_by_url(phorum_get_url(PHORUM_LOGIN_URL,"redir=$redir"));
+        exit();
+
     }
 }
 
@@ -98,20 +98,10 @@ if ($mode == "post" || $mode == "reply")
 if ($finish && ($mode == 'edit' || $mode == 'reply'))
 {
     $id = $mode == "edit" ? "message_id" : "parent_id";
-
-    $origmessage = null;
-    if($PHORUM['cache_messages']) {
-        $origmessage = phorum_api_cache_get('message',$PHORUM["forum_id"]."-".$message[$id]);
-    }
-
-    if($origmessage == null) {
-        $origmessage = $PHORUM['DB']->get_message($message[$id]);
-        if($PHORUM['cache_messages']) {
-            phorum_api_cache_put('message',$PHORUM["forum_id"]."-".$message[$id],$origmessage);
-        }
-    }
+    $origmessage = phorum_db_get_message($message[$id]);
     if (! $origmessage) {
-        phorum_api_redirect(PHORUM_INDEX_URL);
+        phorum_redirect_by_url(phorum_get_url(PHORUM_INDEX_URL));
+        exit();
     }
 
     // Copy read-only information for editing messages.
@@ -132,16 +122,7 @@ if ($message["user_id"]) {
 
 // Find the startmessage for the thread.
 if ($mode == "reply" || $mode == "edit") {
-    $top_parent = null;
-    if($PHORUM['cache_messages']) {
-        $top_parent = phorum_api_cache_get('message',$PHORUM["forum_id"]."-".$message["thread"]);
-    }
-    if($top_parent == null) {
-        $top_parent = $PHORUM['DB']->get_message($message["thread"]);
-        if($PHORUM['cache_messages']) {
-            phorum_api_cache_put('message',$PHORUM["forum_id"]."-".$message["thread"],$top_parent);
-        }
-    }
+    $top_parent = phorum_db_get_message($message["thread"]);
 }
 
 // Do permission checks for replying to messages.
@@ -149,16 +130,7 @@ if ($mode == "reply")
 {
     // Find the direct parent for this message.
     if ($message["thread"] != $message["parent_id"]) {
-        $parent = null;
-        if($PHORUM['cache_messages']) {
-            $parent = phorum_api_cache_get('message',$PHORUM["forum_id"]."-".$message["parent_id"]);
-        }
-        if($parent == null) {
-            $parent = $PHORUM['DB']->get_message($message["parent_id"]);
-            if($PHORUM['cache_messages']) {
-                phorum_api_cache_put('message',$PHORUM["forum_id"]."-".$message["parent_id"],$parent);
-            }
-        }
+        $parent = phorum_db_get_message($message["parent_id"]);
     } else {
         $parent = $top_parent;
     }
@@ -184,7 +156,8 @@ if ($mode == "reply")
 
         // In other cases, redirect users that are replying to
         // unapproved messages to the message list.
-        phorum_api_redirect(PHORUM_LIST_URL);
+        phorum_redirect_by_url(phorum_get_url(PHORUM_LIST_URL));
+        exit;
     }
 
     // closed topic, show a message
@@ -193,7 +166,6 @@ if ($mode == "reply")
         $PHORUM["posting_template"] = "message";
         return;
     }
-
 }
 
 // Do permission checks for editing messages.

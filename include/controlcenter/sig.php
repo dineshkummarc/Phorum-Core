@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,14 +15,16 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_CONTROL_CENTER")) return;
+if(!defined("PHORUM_CONTROL_CENTER")) return;
 
 if(count($_POST)) {
      list($error,$okmsg) = phorum_controlcenter_user_save($panel);
 }
+
+
+$PHORUM["DATA"]["HEADING"] = $PHORUM["DATA"]["LANG"]["EditSignature"];
 
 $PHORUM['DATA']['PROFILE']['SIGSETTINGS'] = 1;
 $template = "cc_usersettings";

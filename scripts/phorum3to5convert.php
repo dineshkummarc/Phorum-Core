@@ -1,9 +1,6 @@
 #!/usr/bin/php
 <?php
-if ('cli' != php_sapi_name()) {
-    echo "This script cannot be run from a browser.";
-    return;
-}
+
 /*
 
 ***** IT IS HIGHLY RECCOMENDED THAT YOU RUN THIS SCRIPT ON A CONSOLE
@@ -74,6 +71,11 @@ Instructions:
 
 */
 
+if ('cli' != php_sapi_name()) {
+    echo "This script cannot be run from a browser.";
+    return;
+}
+
 ini_set ( "zlib.output_compression", "0");
 ini_set ( "output_handler", "");
 @ob_end_flush();
@@ -112,10 +114,8 @@ $CONVERT['attachmentdir'] = "/full/path/to/files";
 set_time_limit(0);
 
 require './common.php';
+require './include/thread_info.php';
 require './scripts/phorum3_in.php';
-
-require_once PHORUM_PATH.'/include/api/thread.php';
-require_once PHORUM_PATH.'/include/api/dev.php';
 
 // no need to change anything below this line
 // establishing the first link to the old database
@@ -145,7 +145,7 @@ if(phorum_convert_check_groups($oldlink)) {
     if(count($CONVERT['groups'])) {
         echo "Writing groups ... {$CONVERT['lbr']}";
         foreach($CONVERT['groups'] as $groupid => $groupdata) {
-            $PHORUM['DB']->add_group($groupdata['name'],$groupid);
+            phorum_db_add_group($groupdata['name'],$groupid);
             $CONVERT['groups'][$groupid]['group_id']=$groupid;
         }
     }
@@ -169,7 +169,7 @@ $offsets=array();
 foreach($forums as $forumid => $forumdata) {
     $newforum = phorum_convert_prepareForum($forumdata);
 
-    $PHORUM['DB']->add_forum($newforum);
+    phorum_db_add_forum($newforum);
 
     if (!$forumdata['folder']) {
         $PHORUM['forum_id'] = $forumid;
@@ -177,7 +177,7 @@ foreach($forums as $forumid => $forumdata) {
 
         echo "Reading maximum message-id from messages-table... {$CONVERT['lbr']}";
         flush();
-        $CONVERT['max_id'] = $PHORUM['DB']->get_max_messageid();
+        $CONVERT['max_id'] = phorum_db_get_max_messageid();
         $offsets[$forumid]=$CONVERT['max_id'];
 
         if ($forumdata['allow_uploads']=='Y' && file_exists($CONVERT['attachmentdir']."/".$forumdata['table_name'])) {
@@ -195,8 +195,8 @@ foreach($forums as $forumid => $forumdata) {
         $res = phorum_convert_selectMessages($forumdata, $oldlink);
         while ($newmessage = phorum_convert_getNextMessage($res,$forumdata['table_name'])) {
 
-            if($PHORUM['DB']->post_message($newmessage, true)) {
-              phorum_api_thread_update_metadata($newmessage['thread']);
+            if(phorum_db_post_message($newmessage, true)) {
+              phorum_update_thread_info($newmessage['thread']);
               echo "+";
               flush();
               if ($count == 50) {
@@ -214,14 +214,14 @@ foreach($forums as $forumid => $forumdata) {
               $count++;
             } else {
               print "Error in message: ".$CONVERT['lbr'];
-              phorum_api_dev_dump($newmessage);
+              print_var($newmessage);
               print $CONVERT['lbr'];
             }
         }
 
         echo "{$CONVERT['lbr']}Updating forum-statistics: {$CONVERT['lbr']}";
         flush();
-        $PHORUM['DB']->update_forum_stats(true);
+        phorum_db_update_forum_stats(true);
         echo $CONVERT['lbr'];
         flush();
     }
@@ -229,12 +229,12 @@ foreach($forums as $forumid => $forumdata) {
 unset($forums);
 
 // storing the offsets of the forums
-$PHORUM['DB']->update_settings(array("conversion_offsets"=>$offsets));
+phorum_db_update_settings(array("conversion_offsets"=>$offsets));
 
 if($CONVERT['do_groups'] && count($CONVERT['groups'])) { // here we set the group-permissions
     echo "Writing group-permissions ... {$CONVERT['lbr']}";
     foreach($CONVERT['groups'] as $groupid => $groupdata) {
-        $PHORUM['DB']->update_group($groupdata);
+        phorum_db_update_group($groupdata);
     }
 }
 
@@ -262,7 +262,7 @@ if($CONVERT['do_users']) {
                 $user_groups=$group_perms[$cur_user['user_id']];
             }
             if(count($user_groups)) { // setting the user's group-memberships
-                $PHORUM['DB']->user_save_groups($cur_user['user_id'],$user_groups);
+                phorum_db_user_save_groups($cur_user['user_id'],$user_groups);
             }
             $count++;
         }

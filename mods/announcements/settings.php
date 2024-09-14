@@ -25,7 +25,7 @@ if (count($_POST))
     $PHORUM["mod_announcements"]["number_to_show"] = (int)$_POST["number_to_show"];
     $PHORUM["mod_announcements"]["days_to_show"] = (int)$_POST["days_to_show"];
 
-    $PHORUM['DB']->update_settings(array(
+    phorum_db_update_settings(array(
         "mod_announcements" => $PHORUM["mod_announcements"]
     ));
     phorum_admin_okmsg("Announcement settings updated");
@@ -42,9 +42,9 @@ $frm->hidden("mod", "announcements");
 $frm->addbreak("Announcement Settings");
 
 
-$page_list = $frm->checkbox("pages[home]", 1, "Home page, root level forum list (index.php)", $PHORUM["mod_announcements"]["pages"]["home"])."<br/>".
-             $frm->checkbox("pages[index]", 1, "Forum List (index.php)", $PHORUM["mod_announcements"]["pages"]["index"])."<br/>".
-             $frm->checkbox("pages[list]", 1, "Message List (list.php)", $PHORUM["mod_announcements"]["pages"]["list"])."<br/>".
+$page_list = $frm->checkbox("pages[home]", 1, "Home page, root level forum list (index.php)", $PHORUM["mod_announcements"]["pages"]["home"])."<br />".
+             $frm->checkbox("pages[index]", 1, "Any forum List (index.php)", $PHORUM["mod_announcements"]["pages"]["index"])."<br />".
+             $frm->checkbox("pages[list]", 1, "Message List (list.php)", $PHORUM["mod_announcements"]["pages"]["list"])."<br />".
              $frm->checkbox("pages[read]", 1, "Read Message (read.php)", $PHORUM["mod_announcements"]["pages"]["read"]);
 
 $frm->addrow("Announcements Appear On", $page_list);
@@ -60,6 +60,7 @@ $forum_list_global = phorum_get_forum_info(1,0);
 
 $frm->addrow("Announcement Forum", $frm->select_tag("forum_id", $forum_list_global, $PHORUM["mod_announcements"]["forum_id"]));
 
+//$vroot_folders = phorum_db_get_forums(0, NULL, '\'forum_id\'');
 $vroot_folders = phorum_get_forum_info(3,-1);
 
 if(count($vroot_folders)) {

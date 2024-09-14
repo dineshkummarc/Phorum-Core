@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -16,19 +17,15 @@
 //   along with this program.                                                 //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_ADMIN")) return;
+if(!defined("PHORUM_ADMIN")) return;
 
 define("PHORUM_INSTALL", 1);
 
-require_once PHORUM_PATH.'/include/api/user.php';
-require_once PHORUM_PATH.'/include/api/thread.php';
-require_once PHORUM_PATH.'/include/api/custom_field.php';
+include_once("./include/api/base.php");
+include_once("./include/api/user.php");
 
-if (!$PHORUM['DB']->check_connection()){
-    phorum_admin_error(
-        "A database connection could not be established.<br/>" .
-        "Please check the database configuration in include/config/database.php."
-    );
+if(!phorum_db_check_connection()){
+    echo "A database connection could not be established.  Please edit include/db/config.php.";
     return;
 }
 
@@ -48,12 +45,12 @@ $default_cache_dir = (substr(__FILE__, 0, 1)=="/") ? "/tmp" : "C:\\Windows\\Temp
 if ($step == 'start' && !isset($_POST["sanity_checks_done"]))
 {
     // Setup some fake environment data for the checks.
-    $PHORUM["default_forum_options"]["language"] = PHORUM_DEFAULT_LANGUAGE;
-    $PHORUM['CACHECONFIG']['directory'] = $default_cache_dir;
-    $PHORUM["real_cache"] = $default_cache_dir . "/install_tmp_sanity_check_cache_dir";
+    $GLOBALS["PHORUM"]["default_forum_options"]["language"] = PHORUM_DEFAULT_LANGUAGE;
+    $GLOBALS["PHORUM"]["cache"] = $default_cache_dir;
+    $GLOBALS["PHORUM"]["real_cache"] = $default_cache_dir . "/install_tmp_sanity_check_cache_dir";
 
     // Load and run all available checks.
-    include './include/admin/sanity_checks.php';
+    include("./include/admin/sanity_checks.php");
 
     ?>
     <h1>Checking your system</h1>
@@ -64,9 +61,10 @@ if ($step == 'start' && !isset($_POST["sanity_checks_done"]))
     indicate that some problem needs attention, but that the problem
     will not keep Phorum from running. Errors indicate critical
     problems, which need to be fixed before running Phorum.
-    <br/><br/>
+    <br /><br />
 
     <script type="text/javascript">
+    // <![CDATA[
     function toggle_sanity_info(check_id)
     {
         info_div = document.getElementById("sanity_info_" + check_id);
@@ -81,6 +79,7 @@ if ($step == 'start' && !isset($_POST["sanity_checks_done"]))
             }
         }
     }
+    // ]]>
     </script>
     <?php
 
@@ -101,9 +100,9 @@ if ($step == 'start' && !isset($_POST["sanity_checks_done"]))
         {
             print " (<a id=\"sanity_info_link_{$check["id"]}\" href=\"javascript:toggle_sanity_info('{$check["id"]}')\">show problem info</a>)";
             print "<div id=\"sanity_info_{$check["id"]}\" style=\"display: none; padding-top: 15px\">";
-            print "<b>Problem:</b><br/>";
+            print "<b>Problem:</b><br />";
             print $check["error"];
-            print "<br/><br/><b>Possible solution:</b><br/>";
+            print "<br /><br /><b>Possible solution:</b><br />";
             print $check["solution"];
             print "</div>";
         }
@@ -117,34 +116,34 @@ if ($step == 'start' && !isset($_POST["sanity_checks_done"]))
     <?php
     if ($got_crit) {
         ?>
-        <br/>
+        <br />
         One or more critical errors were encountered while checking
         your system. To see what is causing these errors and what you
-        can do about them, click the "show problem info" links.
+        can do about them, click the &quot;show problem info&quot; links.
         Please fix these errors and restart the system checks.
-        <br/><br/>
+        <br /><br />
         <input type="submit" value="Restart the system checks" />
         <?php
 
     } elseif ($got_warn) {
         ?>
-        <br/>
+        <br />
         One or more warnings were encountered while checking
         your system. To see what is causing these warnings and what you
-        can do about them, click the "show problem info" links.
+        can do about them, click the &quot;show problem info&quot; links.
         Phorum probably will run without fixing the warnings, but
-        it's a good idea to fix them anyway for ensuring optimal
+        it&apos;s a good idea to fix them anyway for ensuring optimal
         performance.
-        <br/><br/>
+        <br /><br />
         <input type="submit" value="Restart the system checks" />
         <input type="submit" name="sanity_checks_done" value="Continue without fixing the warnings -&gt;" />
         <?php
     } else {
         ?>
-        <br/>
+        <br />
         No problems were encountered while checking your system.
         You can now continue with the Phorum installation.
-        <br/><br/>
+        <br /><br />
         <input type="submit" name="sanity_checks_done" value="Continue -&gt;" />
         <?php
     }
@@ -156,7 +155,7 @@ if ($step == 'start' && !isset($_POST["sanity_checks_done"]))
     return;
 }
 
-require_once './include/admin/PhorumInputForm.php';
+include_once "./include/admin/PhorumInputForm.php";
 
 if(count($_POST)){
 
@@ -174,102 +173,48 @@ if(count($_POST)){
 
         case "create_admin_user":
 
-            if (!empty($_POST["admin_user"]) && !empty($_POST["admin_pass"]) &&
-                !empty($_POST["admin_pass2"]) && !empty($_POST["admin_email"]))
-            {
-                // Check if the two entered passwords are equal.
-                if ($_POST["admin_pass"] != $_POST["admin_pass2"]) {
-                    phorum_admin_error("The password fields do not match");
-                    break;
-                }
-
-                // Check if the user already exists as an admin user.
-                // If yes, then we can use that existing user.
-                $user_id = phorum_api_user_authenticate(
-                    PHORUM_ADMIN_SESSION,
-                    $_POST["admin_user"],$_POST["admin_pass"]
-                );
-                if ($user_id) {
-                    $user = phorum_api_user_get($user_id);
-                    if (empty($user["admin"])) {
-                        phorum_admin_error(
-                            "That user already exists but without admin " .
-                            "permissions. Please create a different user."
-                        );
-                        break;
+            if(!empty($_POST["admin_user"]) && !empty($_POST["admin_pass"]) && !empty($_POST["admin_pass2"]) && !empty($_POST["admin_email"])){
+                if($_POST["admin_pass"]!=$_POST["admin_pass2"]){
+                    echo "The password fields do not match<br />";
+                } elseif(phorum_api_user_authenticate(PHORUM_ADMIN_SESSION, $_POST["admin_user"],$_POST["admin_pass"])){
+                    if($PHORUM["user"]["admin"]){
+                        echo "Admin user already exists and has permissions.<br />";
+                    } else {
+                        echo "That user already exists but does not have admin permissions.<br />";
                     }
-                }
+                } else {
 
-                // Authenticating the user failed? Let's check if the user
-                // already exists at all.
-                if (!$user_id) {
-                    $user = phorum_api_user_search('username', $_POST['admin_user']);
-                    if ($user) {
-                        phorum_admin_error(
-                            "That user already exists in the database."
-                        );
-                        break;
-                    }
-                }
-
-                // The user does not yet exist. Create it now.
-                if (!$user_id)
-                {
                     // add the user
                     $user = array( "user_id"=>NULL, "username"=>$_POST["admin_user"], "password"=>$_POST["admin_pass"], "email"=>$_POST["admin_email"], "active"=>1, "admin"=>1 );
 
-                    if (!phorum_api_user_save($user)){
-                        phorum_admin_error("There was an error adding the user.");
-                        break;
+                    if(!phorum_api_user_save($user)){
+                        echo "There was an error adding the user.<br />";
                     }
+
+                    // set the default http_path so we can continue.
+                    if(!empty($_SERVER["HTTP_REFERER"])) {
+                        $http_path=$_SERVER["HTTP_REFERER"];
+                    } elseif(!empty($_SERVER['HTTP_HOST'])) {
+                        $http_path="http://".$_SERVER['HTTP_HOST'];
+                        $http_path.=$_SERVER['PHP_SELF'];
+                    } else {
+                        $http_path="http://".$_SERVER['SERVER_NAME'];
+                        $http_path.=$_SERVER['PHP_SELF'];
+                    }
+                    phorum_db_update_settings(array("http_path"=>dirname($http_path)));
+                    phorum_db_update_settings(array("system_email_from_address"=>$_POST["admin_email"]));
+
+                    $step = "modules";
+
                 }
-
-                // set the default http_path so we can continue.
-                if(!empty($_SERVER["HTTP_REFERER"])) {
-                    $http_path=$_SERVER["HTTP_REFERER"];
-                } elseif(!empty($_SERVER['HTTP_HOST'])) {
-                    $http_path="http://".$_SERVER['HTTP_HOST'];
-                    $http_path.=$_SERVER['PHP_SELF'];
-                } else {
-                    $http_path="http://".$_SERVER['SERVER_NAME'];
-                    $http_path.=$_SERVER['PHP_SELF'];
-                }
-                $PHORUM['DB']->update_settings(array("http_path"=>dirname($http_path)));
-                $PHORUM['DB']->update_settings(array("system_email_from_address"=>$_POST["admin_email"]));
-
-                $step = "modules";
-
             } else {
-                phorum_admin_error("Please fill in all fields.");
+                echo "Please fill in all fields.<br />";
             }
 
             break;
 
         case "modules":
-
-            // Retrieve a list of available modules.
-            require_once './include/api/modules.php';
-            $list = phorum_api_modules_list();
-
-            // Process posted form data
-            if (isset($_POST["do_modules_update"]))
-            {
-                foreach ($_POST as $key => $value) {
-                    $key = base64_decode($key);
-                    if(substr($key, 0, 5) == "mods_") {
-                        $mod = substr($key, 5);
-                        if ($value) {
-                            phorum_api_modules_enable($mod);
-                        } else {
-                            phorum_api_modules_disable($mod);
-                        }
-                    }
-                }
-
-                phorum_api_modules_save();
-
-                $step = "done";
-            }
+            include_once "./include/admin/mods.php";
             break;
     }
 
@@ -296,7 +241,7 @@ switch ($step){
     case "create_tables":
         // ok, fresh install
 
-        $err=$PHORUM['DB']->create_tables();
+        $err=phorum_db_create_tables();
 
         if($err){
             $message="Could not create tables, database said:<blockquote>$err</blockquote>";
@@ -333,9 +278,6 @@ switch ($step){
 
             // insert the default module settings
             // hooks
-
-
-
             $mods_initial = array (
                 'announcements' => 1,
                 'bbcode' => 1,
@@ -386,6 +328,7 @@ switch ($step){
             $settings=array(
             "title" => "Phorum 5",
             "description" => "Congratulations!  You have installed Phorum 5!  To change this text, go to your admin, choose General Settings and change the description",
+            "cache" => $default_cache_dir,
             "session_timeout" => "30",
             "short_session_timeout" => "60",
             "tight_security" => "0",
@@ -404,16 +347,17 @@ switch ($step){
             "default_feed" => "rss",
             "internal_version" => "" . PHORUM_SCHEMA_VERSION . "",
             "internal_patchlevel" => "" . PHORUM_SCHEMA_PATCHLEVEL . "",
+            "PROFILE_FIELDS" => array(),
             "enable_pm" => "1",
             "display_name_source" => "username",
             "user_edit_timelimit" => "0",
+            "enable_new_pm_count" => "1",
             "enable_dropdown_userlist" => "1",
             "enable_moderator_notifications" => "1",
             "show_new_on_index" => "1",
             "dns_lookup" => "1",
             "tz_offset" => "0",
             "user_time_zone" => "1",
-            "user_language" => "1",
             "user_template" => "0",
             "registration_control" => "1",
             "file_uploads" => "0",
@@ -423,6 +367,7 @@ switch ($step){
             "file_offsite" => "0",
             "system_email_from_name" => "",
             "hide_forums" => "1",
+            "enable_new_pm_count" => "1",
             "track_user_activity" => "86400",
             "track_edits" => 0,
             "html_title" => "Phorum",
@@ -432,13 +377,17 @@ switch ($step){
             "cache_messages" => 0,
             "redirect_after_post" => "list",
             "reply_on_read_page" => 1,
+            "strip_quote_posting_form" => 0,
+            "strip_quote_mail" => 0,
             "status" => "normal",
-            "index_style" => PHORUM_INDEX_FLAT,
+            "use_new_folder_style" => 1,
             "default_forum_options" => $default_forum_options,
             "hooks"=> $hooks_initial,
             "mods" => $mods_initial,
             "mod_announcements" => array('module'=>'modsettings','mod'=>'announcements','forum_id'=>1,'pages'=>array('index'=>'1','list'=>'1'),'number_to_show'=>5,'only_show_unread'=>NULL,'days_to_show'=>0)
+
             );
+
             // check for the fileinfo extension
             if(function_exists("finfo_open")) {
                 $settings['file_fileinfo_ext']=1;
@@ -446,11 +395,7 @@ switch ($step){
                 $settings['file_fileinfo_ext']=0;
             }
 
-            $PHORUM['DB']->update_settings($settings);
-
-            // Generate the (at this point empty) cache data for the
-            // custom field handling.
-            phorum_api_custom_field_rebuild_cache();
+            phorum_db_update_settings($settings);
 
             // posting forum and test-message
 
@@ -474,13 +419,15 @@ switch ($step){
             "language"=>            $default_forum_options['language'],
             "email_moderators"=>    $default_forum_options['email_moderators'],
             "display_order"=>99,
+            "edit_post"=>1,
             "pub_perms" =>  $default_forum_options['pub_perms'],
             "reg_perms" =>  $default_forum_options['reg_perms'],
-            "inherit_id"=>  0,
+            "template_settings" => "",
+            "inherit_id"=>0,
             "forum_path" => 'a:2:{i:0;s:8:"Phorum 5";i:1;s:13:"Announcements";}'
             );
 
-            $PHORUM['DB']->add_forum($forum);
+            phorum_db_add_forum($forum);
 
             // create a test forum
             $forum=array(
@@ -502,18 +449,20 @@ switch ($step){
             "language"=>            $default_forum_options['language'],
             "email_moderators"=>    $default_forum_options['email_moderators'],
             "display_order"=>0,
+            "edit_post"=>1,
             "pub_perms" =>  $default_forum_options['pub_perms'],
             "reg_perms" =>  $default_forum_options['reg_perms'],
-            "inherit_id"=>  0,
+            "template_settings" => "",
+            "inherit_id"=>0,
             "forum_path" => 'a:2:{i:0;s:8:"Phorum 5";i:2;s:10:"Test Forum";}'
             );
 
-            $PHORUM['forum_id']=$PHORUM['DB']->add_forum($forum);
-            $PHORUM['vroot']=0;
+            $GLOBALS["PHORUM"]['forum_id']=phorum_db_add_forum($forum);
+            $GLOBALS["PHORUM"]['vroot']=0;
 
             // create a test post
             $test_message=array(
-            "forum_id" => $PHORUM["forum_id"],
+            "forum_id" => $GLOBALS['PHORUM']["forum_id"],
             "thread" => 0,
             "parent_id" => 0,
             "author" => 'Phorum Installer',
@@ -529,11 +478,13 @@ switch ($step){
             "body" => "This is a test message. You can delete it after installation using the moderation tools. These tools will be visible in this screen if you log in as the administrator user that you created during install.\n\nPhorum 5 Team"
             );
 
-            $PHORUM['DB']->post_message($test_message);
+            phorum_db_post_message($test_message);
 
-            phorum_api_thread_update_metadata($test_message["thread"]);
+            include_once ("./include/thread_info.php");
 
-            $PHORUM['DB']->update_forum_stats(true);
+            phorum_update_thread_info($test_message["thread"]);
+
+            phorum_db_update_forum_stats(true);
 
         }
 
@@ -567,52 +518,58 @@ switch ($step){
 
     case "done":
 
-        $cont_url = phorum_admin_build_url();
-        $PHORUM['DB']->update_settings( array("installed"=>1) );
-        echo "The setup is complete.  You can now go to <a href=\"$cont_url\">the admin</a> and start making Phorum all your own.<br /><br /><strong>Here are some things you will want to look at:</strong><br /><br /><a href=\"$_SERVER[PHP_SELF]?module=settings\">The General Settings page</a><br /><br /><a href=\"$_SERVER[PHP_SELF]?module=mods\">Pre-installed modules</a><br /><br /><a href=\"docs/faq.txt\">The FAQ</a><br /><br /><a href=\"docs/performance.txt\">How to get peak performance from Phorum</a><br /><br /><strong>For developers:</strong><br /><br /><a href=\"docs/creating_mods.txt\">Module Creation</a><br /><br /><a href=\"docs/permissions.txt\">How Phorum permisssions work</a><br /><br /><a href=\"docs/CODING-STANDARDS\">The Phorum Team's codings standards</a>";
+        $cont_url = phorum_admin_build_url('');
+        phorum_db_update_settings( array("installed"=>1) );
+        echo "The setup is complete.  You can now go to <a href=\"$cont_url\">the admin</a> and start making Phorum all your own.<br /><br /><strong>Here are some things you will want to look at:</strong><br /><br /><a href=\"$_SERVER[PHP_SELF]?module=settings\">The General Settings page</a><br /><br /><a href=\"$_SERVER[PHP_SELF]?module=mods\">Pre-installed modules</a><br /><br /><a href=\"docs/faq.txt\">The FAQ</a><br /><br /><a href=\"docs/performance.txt\">How to get peak performance from Phorum</a><br /><br /><strong>For developers:</strong><br /><br /><a href=\"docs/creating_mods.txt\">Module Creation</a><br /><br /><a href=\"docs/permissions.txt\">How Phorum permisssions work</a><br /><br /><a href=\"docs/CODING-STANDARDS\">The Phorum Team&apos;s codings standards</a>";
+
+        break;
+
+    case "sanity_checks":
+        // try to figure out if we can write to the cache directory
+        $message = "";
+        error_reporting(0);
+        $err = false;
+        if ($fp = fopen($PHORUM["cache"] . "/phorum-install-test", "w+")) {
+            unlink($PHORUM["cache"] . "/phorum-install-test");
+        }
+        else {
+            // in this case the normal setting is wrong, so try ./cache
+            $PHORUM["cache"] = "./cache";
+            $settings = array("cache" => $PHORUM["cache"]);
+            if (!phorum_db_update_settings($settings)) {
+                $message .= "Database error updating settings.<br />";
+                $err = true;
+            }
+            elseif ($fp = fopen($PHORUM["cache"] . "/phorum-install-test", "w+")) {
+                unlink($PHORUM["cache"] . "/phorum-install-test");
+            }
+            else {
+                $err = true;
+            }
+
+        }
+        error_reporting(E_WARN);
+        if ($message == "") {
+            if($err){
+                $message.="Your cache directory is not writable. Please change the permissions on &apos;/cache&apos; inside the Phorum directory to allow writing. In Unix, you may have to use this command: chmod 777 cache<br /><br />If you want to continue anyway and set a cache directory manually, press continue. Note that you must do this, Phorum will not work without a valid cache.";
+            } else {
+                $message.="Cache directory set.  Next we will create a user with administrator privileges.  Press continue when ready.";
+            }
+        }
+
+        $frm = new PhorumInputForm ("", "post", "Continue ->");
+        $frm->hidden("module", "install");
+        $frm->hidden("sanity_checks_done", "1");
+        $frm->addbreak("Checking cache....");
+        $frm->addmessage($message);
+        $frm->hidden("step", "modules");
+        $frm->show();
 
         break;
 
     case "modules":
 
-        // Retrieve a list of available modules.
-        require_once './include/api/modules.php';
-        $list = phorum_api_modules_list();
-
-        $frm = new PhorumInputForm ("", "post", "Continue ->");
-        $frm->addbreak("Optional modules");
-        $frm->hidden("module", "install");
-        $frm->hidden("sanity_checks_done", "1");
-        $frm->hidden("step", "modules");
-        $frm->hidden("do_modules_update", "1");
-        $frm->addmessage(
-            "Phorum has a very robust module system.  The following modules are
-             included with the distribution.  You can find more modules at the
-             Phorum web site.  Some modules may have additional configuration
-             options, which are not available during install.  To configure the
-             modules, click the \"Modules\" menu item in the admin interface
-             after installation is done."
-        );
-
-        foreach ($list['modules'] as $name => $info)
-        {
-            // Skip the compatibility modules.
-            // These are enabled automatically by Phorum when required.
-            if (!empty($info['compat'])) continue;
-
-            // Should not happen.
-            if ($info['version_disabled']) continue;
-
-            $text = $info["title"];
-            if(isset($info["desc"])){
-                $text.="<div class=\"small\">".phorum_api_format_wordwrap($info["desc"], 90, "<br />")."</div>";
-            }
-
-            $frm->addrow($text, $frm->select_tag(base64_encode("mods_$name"), array("Off", "On"), $info['enabled']));
-        }
-
-        $frm->show();
-
+        include_once "./include/admin/mods.php";
         break;
 }
 

@@ -10,13 +10,19 @@ $upgrade_queries[]="
     set closed=1, status=2 where status=1";
 
 $upgrade_queries[]="
-    alter ignore table {$PHORUM['message_table']}
+    alter table {$PHORUM['message_table']}
+    add key dup_check (forum_id,author,subject,datestamp)";
+
+$upgrade_queries[]="
+    alter table {$PHORUM['message_table']}
     drop key message_id";
 
 $upgrade_queries[]="
     alter table {$PHORUM['message_table']}
-    add key dup_check (forum_id,author,subject,datestamp),
-    add key forum_max_message (forum_id, message_id),
+    add key forum_max_message (forum_id, message_id)";
+
+$upgrade_queries[]="
+    alter table {$PHORUM['message_table']}
     add key last_post_time (forum_id, status, modifystamp)";
 
 

@@ -9,11 +9,12 @@ output anything until it is completed.
 
 If you are enabling Phorum's internal viewcount setting, you should disable mod_viewcount.
 */
+
 if ('cli' != php_sapi_name()) {
     echo "This script cannot be run from a browser.";
     return;
 }
-include("include/config/database.php");
+include("include/db/config.php");
 mysql_connect($PHORUM["DBCONFIG"]["server"],$PHORUM["DBCONFIG"]["user"],$PHORUM["DBCONFIG"]["password"]);
 mysql_select_db($PHORUM["DBCONFIG"]["name"]);
 $query = "SELECT message_id, meta, viewcount FROM $PHORUM[DBCONFIG][table_prefix]_messages ORDER BY message_id DESC";

@@ -20,25 +20,26 @@
 // This script is used for handling Ajax calls to the Phorum system.
 // Ajax calls can either be implemented as scripts files in
 // "./include/ajax/call.<callname>.php" or through modules that implement
-// the "ajax_<call>" hook.
+// the "ajax_call" hook.
 
 define('phorum_page', 'ajax');
 
-require_once './common.php';
-
-require_once PHORUM_PATH.'/include/api/json.php';
-
-// Registration of some language strings that can be used by Ajax clients.
-// We put them in here, so the language tool can find them.
-// $PHORUM['DATA']['LANG']['ActionPending']
-// $PHORUM['DATA']['LANG']['ActionsPending']
+require_once('./common.php');
+require_once('./include/api/json.php');
 
 // ----------------------------------------------------------------------
 // Client JavaScript library
 // ----------------------------------------------------------------------
 
-if (isset($PHORUM['args'][0]) && $PHORUM['args'][0] == 'client') {
-    phorum_api_redirect(PHORUM_JAVASCRIPT_URL);
+if (isset($PHORUM['args'][0]) && $PHORUM['args'][0] == 'client')
+{
+    header("Content-type: text/javascript");
+    header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 28800) . ' GMT');
+    header('Cache-control: must-revalidate');
+    header('Pragma: cache');
+
+    include('./include/ajax/client.js.php');
+    exit;
 }
 
 // ----------------------------------------------------------------------
@@ -46,7 +47,7 @@ if (isset($PHORUM['args'][0]) && $PHORUM['args'][0] == 'client') {
 // ----------------------------------------------------------------------
 
 if (isset($PHORUM['args'][0]) && $PHORUM['args'][0] == 'examples') {
-    include './include/ajax/examples.php';
+    include('./include/ajax/examples.php');
     exit;
 }
 
@@ -55,12 +56,6 @@ if (isset($PHORUM['args'][0]) && $PHORUM['args'][0] == 'examples') {
 // ----------------------------------------------------------------------
 
 $PHORUM['ajax_args'] = array();
-
-// Check if this is a JSONP request.
-$PHORUM['ajax_jsonp'] = NULL;
-if (isset($PHORUM['args']['callback'])) {
-    $PHORUM['ajax_jsonp'] = $PHORUM['args']['callback'];
-}
 
 // JSON data based request (stored in a POST or PUT request body)
 if ($_SERVER['REQUEST_METHOD']=='POST' || $_SERVER['REQUEST_METHOD']=='PUT')
@@ -168,12 +163,12 @@ if(empty($PHORUM['user']['user_id'])) {
  */
 $call_hook = 'ajax_' . $ajax_call;
 if (isset($PHORUM['hooks'][$call_hook])) {
-    phorum_api_hook($call_hook, $PHORUM['ajax_args']);
+    phorum_hook($call_hook, $PHORUM['ajax_args']);
 }
 
 // Check if the Ajax call has a core handler script.
 if (file_exists("./include/ajax/call.$ajax_call.php")) {
-    include "./include/ajax/call.$ajax_call.php";
+    include("./include/ajax/call.$ajax_call.php");
     exit();
 }
 
@@ -191,26 +186,17 @@ phorum_ajax_error('Unknown call "'.$ajax_call.'" in Ajax POST request');
  * This will send an error (500 HTTP status code) message to the client,
  * using UTF-8 as the character set.
  *
- * When JSONP is used for communicating to Phorum's Ajax script, then
- * a JSONP callback is done with {error: "error message"} as the
- * response data. The calling client will have to handle this error.
- *
  * @param string $message
  *     The error message to return.
  */
 function phorum_ajax_error($message)
 {
-    global $PHORUM;
+    $message = phorum_api_json_convert_to_utf8($message);
 
-    if ($PHORUM['ajax_jsonp'] === NULL) {
-        header("HTTP/1.1 500 Phorum Ajax error");
-        header("Status: 500 Phorum Ajax error");
-        header("Content-Type: text/plain; charset=UTF-8");
-        print phorum_api_charset_convert_to_utf8($message);
-    } else {
-        $return =  phorum_api_json_encode(array('error' => $message));
-        print $PHORUM['ajax_jsonp'] . "($return);";
-    }
+    header("HTTP/1.1 500 Phorum Ajax error");
+    header("Status: 500 Phorum Ajax error");
+    header("Content-Type: text/plain; charset=UTF-8");
+    print $message;
     exit(1);
 }
 
@@ -220,25 +206,13 @@ function phorum_ajax_error($message)
  * The data will be sent to the client in the JSON encoding format,
  * using UTF-8 as the character set.
  *
- * When JSONP is used for communicating to Phorum's Ajax script, then
- * a JSONP callback is done with the JSON encoded $data as the response data.
- *
  * @param mixed $data
  *     The data to return in the body.
  */
 function phorum_ajax_return($data)
 {
-    global $PHORUM;
-
     header("Content-Type: text/plain; charset=UTF-8");
-    $return = phorum_api_json_encode($data);
-
-    if ($PHORUM['ajax_jsonp'] === NULL) {
-        print $return;
-    } else {
-        print $PHORUM['ajax_jsonp'] . "($return);";
-    }
-
+    print phorum_api_json_encode($data);
     exit(0);
 }
 
@@ -260,9 +234,9 @@ function phorum_ajax_return($data)
  *
  * @param mixed $type
  *
- *     The type of data to retrieve. Options are: "int", "int>0", "int>=0",
- *     "string", "boolean". These types can be prefixed with "array:" to
- *     indicate that an array of those types has to be returned. If the input
+ *     The type of data to retrieve. Options are: "int", "int>0", "string",
+ *     "boolean". These types can be prefixed with "array:" to indicate
+ *     that an array of those types has to be returned. If the input
  *     argument is not an array in this case, then this function will
  *     convert it to a single item array.
  *
@@ -289,15 +263,6 @@ function phorum_ajax_getarg($arg, $type = NULL, $default = NULL)
     }
     $value = $PHORUM["ajax_args"][$arg];
 
-    // Handle JSON decoding if the value was JSON encoded.
-    // This is determined by the magic marker $JSON$ that can be
-    // prefixed to an argument. This encoding method is used
-    // for handling arrays in JSONP call parameters from the
-    // Phorum JavaScript library.
-    if (strlen($value) > 6 && substr($value, 0, 6) == '$JSON$') {
-        $value = phorum_api_json_decode(substr($value, 6));
-    }
-
     // Return immediately, if we don't need to do type checking.
     if (is_null($type)) {
         return $value;
@@ -323,7 +288,7 @@ function phorum_ajax_getarg($arg, $type = NULL, $default = NULL)
             break;
 
         case 'int>0':
-        case 'int>=0':
+
         case 'int':
             foreach ($value as $k => $v) {
                 if (!preg_match('/^[-+]?\d+$/', $v)) phorum_ajax_error(
@@ -334,11 +299,6 @@ function phorum_ajax_getarg($arg, $type = NULL, $default = NULL)
                     "illegal argument: argument \"$arg\" must contain " .
                     ($array ? "only integer values" : "an integer value") .
                     ", larger than zero");
-
-                if ($type == 'int>=0' && $v < 0) phorum_ajax_error(
-                    "illegal argument: argument \"$arg\" must contain " .
-                    ($array ? "only integer values" : "an integer value") .
-                    ", larger than or equal to zero");
             }
             break;
 

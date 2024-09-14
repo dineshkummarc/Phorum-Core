@@ -150,8 +150,6 @@ function phorum_mod_smileys_available()
  */
 function phorum_mod_smileys_store($modinfo)
 {
-    global $PHORUM;
-
     // Get the current list of available smiley images.
     $available_smileys = phorum_mod_smileys_available();
 
@@ -189,7 +187,7 @@ function phorum_mod_smileys_store($modinfo)
         $src = htmlspecialchars("$prefix{$smiley['smiley']}");
         $alttxt = empty($smiley['alt']) ? $smiley["search"] : $smiley["alt"];
         $alt = htmlspecialchars($alttxt);
-        $img = "<img class=\"mod_smileys_img\" src=\"$src\" alt=\"$alt\" title=\"$alt\"/>";
+        $img = "<img class=\"mod_smileys_img\" src=\"$src\" alt=\"$alt\" title=\"$alt\" />";
 
         // Below we use htmlspecialchars() on the search string.
         // This is done, because the smiley mod is run after formatting
@@ -223,7 +221,7 @@ function phorum_mod_smileys_store($modinfo)
                              $modinfo["replacements"]["body"] != NULL;
 
     // Store the module settings in the database.
-    if (! $PHORUM['DB']->update_settings(array("mod_smileys" => $modinfo))) {
+    if (! phorum_db_update_settings(array("mod_smileys" => $modinfo))) {
         return array(NULL, "Saving the smiley settings to the database failed.");
     } else {
         return array($modinfo, "The smiley settings were successfully saved.");

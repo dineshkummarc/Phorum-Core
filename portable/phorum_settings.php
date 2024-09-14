@@ -1,19 +1,11 @@
 <?php
-
-/**
- * We need to define the place where the real Phorum code lives.
- */
-$PHORUM_DIR="/home/brian/htdocs/phorum-trunk";
-
-
-/**
- * You can supply custom DB settings for this portable code base using the
- * $PHORUM_ALT_DBCONFIG array.  The PHORUM_WRAPPER constant must be set.
- */
-/*
+// needed to really load the alternate db-config in common.php
 define("PHORUM_WRAPPER",1);
 
-// optionally set the databse settings for this Phorum Install
+// set the Phorum install dir
+$PHORUM_DIR="/www/dev.phorum/phorum5";
+
+// set the databse settings for this Phorum Install
 $PHORUM_ALT_DBCONFIG=array(
 
    "type"          =>  "mysql",
@@ -24,17 +16,13 @@ $PHORUM_ALT_DBCONFIG=array(
    "table_prefix"  =>  "phorum_portable",
    "charset"       =>  "utf8"
 );
-*/
 
-/**
- * Phorum will call this function to build the URLs instead of using
- * its internal URL creation functions
- */
+// We have to alter the urls a little
 function phorum_custom_get_url ($page, $query_items, $suffix, $pathinfo)
 {
     global $PHORUM;
 
-    $url = "$PHORUM[http_path]/portable/phorum.php";
+    $url = "$PHORUM[http_path]/phorum.php";
     if ($pathinfo !== NULL) $url .= $pathinfo;
     $url .= "?$page";
 

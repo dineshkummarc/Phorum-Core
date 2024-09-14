@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,11 +15,10 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_ADMIN")) return;
+    if(!defined("PHORUM_ADMIN")) return;
 
-include './include/admin/deleteforum.php';
+    include("./include/admin/deleteforum.php");
 
 ?>

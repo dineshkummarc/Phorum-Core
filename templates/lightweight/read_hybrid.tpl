@@ -24,7 +24,7 @@
                             {IF MESSAGES->URL->PM}<small>[ <a href="{MESSAGES->URL->PM}">{LANG->PrivateReply}</a> ]</small>{/IF}
                         </div>
                         <small>
-                        <strong><a href="{MESSAGES->URL->READ}">{MESSAGES->subject}</a></strong>{IF MESSAGES->new}<span class="new-flag[hide,{MESSAGES->forum_id},{MESSAGES->thread}]"> <span class="new-flag">{LANG->New}</span></span>{/IF}<br />
+                        <strong><a href="{MESSAGES->URL->READ}">{MESSAGES->subject}</a></strong>{IF MESSAGES->new} <span class="new-flag">{LANG->New}</span>{/IF}<br />
                         {MESSAGES->datestamp}
                         </small>
                     </td>
@@ -70,11 +70,11 @@
 
             {IF MESSAGES->attachments}
                 <div class="attachments">
-                    {LANG->Attachments}:<br/>
+                    {LANG->Attachments}:<br />
                     {LOOP MESSAGES->attachments}
                         <a href="{MESSAGES->attachments->url}">{LANG->AttachOpen}</a> | <a href="{MESSAGES->attachments->download_url}">{LANG->AttachDownload}</a> -
                         {MESSAGES->attachments->name}
-                        ({MESSAGES->attachments->size})<br/>
+                        ({MESSAGES->attachments->size})<br />
                     {/LOOP MESSAGES->attachments}
                 </div>
             {/IF}
@@ -110,7 +110,7 @@
 <div id="thread-options" class="nav">
     <a class="icon icon-printer" href="{URL->PRINTVIEW}" target="_blank">{LANG->PrintView}</a>
     {IF URL->MARKTHREADREAD}
-        <a class="icon icon-tag-green" href="{URL->MARKTHREADREAD}" onclick="return Phorum.markRead('threads', {TOPIC->thread})">{LANG->MarkThreadRead}</a>
+        <a class="icon icon-tag-green" href="{URL->MARKTHREADREAD}">{LANG->MarkThreadRead}</a>
     {/IF}
     {IF TOPIC->URL->FOLLOW}
         <a class="icon icon-note-add" href="{TOPIC->URL->FOLLOW}">{LANG->FollowThread}</a>
@@ -119,7 +119,6 @@
         <a class="icon icon-feed" href="{URL->FEED}">{FEED}</a>
     {/IF}
     {IF MODERATOR true}
-        <br/>
         <a class="icon icon-merge" href="{TOPIC->URL->MERGE}">{LANG->MergeThread}</a>
         {IF TOPIC->closed false}
             <a class="icon icon-close" href="{TOPIC->URL->CLOSE}">{LANG->CloseThread}</a>
@@ -128,12 +127,6 @@
         {/IF}
         <a class="icon icon-delete" href="{TOPIC->URL->DELETE_THREAD}">{LANG->DeleteThread}</a>
         {IF TOPIC->URL->MOVE}<a class="icon icon-move" href="{TOPIC->URL->MOVE}">{LANG->MoveThread}</a>{/IF}
-        {IF TOPIC->URL->STICKY}
-          <a class="icon icon-bell" href="{TOPIC->URL->STICKY}">{LANG->MakeSticky}</a>
-        {/IF}
-        {IF TOPIC->URL->UNSTICKY}
-          <a class="icon icon-bell" href="{TOPIC->URL->UNSTICKY}">{LANG->MakeUnsticky}</a>
-        {/IF}
     {/IF}
 </div>
 

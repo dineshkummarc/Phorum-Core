@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,13 +15,12 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_ADMIN")) return;
+    if(!defined("PHORUM_ADMIN")) return;
 
-define("PHORUM_DEFAULT_OPTIONS", 1);
+    define("PHORUM_DEFAULT_OPTIONS", 1);
 
-include "./include/admin/newforum.php";
+    include "./include/admin/newforum.php";
 
 ?>

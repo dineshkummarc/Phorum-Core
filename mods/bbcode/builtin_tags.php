@@ -1,21 +1,21 @@
 <?php
-////////////////////////////////////////////////////////////////////////////////
-//                                                                            //
-//   Copyright (C) 2016  Phorum Development Team                              //
-//   http://www.phorum.org                                                    //
-//                                                                            //
-//   This program is free software. You can redistribute it and/or modify     //
-//   it under the terms of either the current Phorum License (viewable at     //
-//   phorum.org) or the Phorum License that was distributed with this file    //
-//                                                                            //
-//   This program is distributed in the hope that it will be useful,          //
-//   but WITHOUT ANY WARRANTY, without even the implied warranty of           //
-//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                     //
-//                                                                            //
-//   You should have received a copy of the Phorum License                    //
-//   along with this program.                                                 //
-//                                                                            //
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Copyright (C) 2016  Phorum Development Team                               //
+// http://www.phorum.org                                                     //
+//                                                                           //
+// This program is free software. You can redistribute it and/or modify      //
+// it under the terms of either the current Phorum License (viewable at      //
+// phorum.org) or the Phorum License that was distributed with this file     //
+//                                                                           //
+// This program is distributed in the hope that it will be useful,           //
+// but WITHOUT ANY WARRANTY, without even the implied warranty of            //
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                      //
+//                                                                           //
+// You should have received a copy of the Phorum License                     //
+// along with this program.                                                  //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
 
 if (!defined("PHORUM") && !defined('PHORUM_ADMIN')) return;
 
@@ -106,8 +106,8 @@ $GLOBALS['PHORUM']['MOD_BBCODE']['BUILTIN'] = array
 
     'url' => array(
         BBCODE_INFO_DESCRIPTION   =>
-            '[url=http://example.com]cool site![/url]<br/>' .
-            '[url]http://example.com[/url]<br/>' .
+            '[url=http://example.com]cool site![/url]<br />' .
+            '[url]http://example.com[/url]<br />' .
             'For adding website links.',
         BBCODE_INFO_HASEDITORTOOL => TRUE,
         BBCODE_INFO_DEFAULTSTATE  => 2,
@@ -125,7 +125,7 @@ $GLOBALS['PHORUM']['MOD_BBCODE']['BUILTIN'] = array
 
     'email' => array(
         BBCODE_INFO_DESCRIPTION   =>
-            '[email subject="website mail!"]johndoe@example.com[/email]<br/>' .
+            '[email subject="website mail!"]johndoe@example.com[/email]<br />' .
             'For adding links to email addresses',
         BBCODE_INFO_HASEDITORTOOL => TRUE,
         BBCODE_INFO_DEFAULTSTATE  => 2,
@@ -138,12 +138,13 @@ $GLOBALS['PHORUM']['MOD_BBCODE']['BUILTIN'] = array
         BBCODE_INFO_HASEDITORTOOL => TRUE,
         BBCODE_INFO_DEFAULTSTATE  => 2,
         BBCODE_INFO_OPENONLY      => TRUE,
-        BBCODE_INFO_REPLACEOPEN   => '<hr class="bbcode"/>',
+        BBCODE_INFO_REPLACEOPEN   => '<hr class="bbcode" />',
+        BBCODE_INFO_STRIPBREAK    => TRUE
     ),
 
     'list' => array(
         BBCODE_INFO_DESCRIPTION   =>
-            '[list]<br/>[*]Item one<br/>[*]Item two<br/>[/list]',
+            '[list]<br />[*]Item one<br />[*]Item two<br />[/list]',
         BBCODE_INFO_HASEDITORTOOL => TRUE,
         BBCODE_INFO_DEFAULTSTATE  => 2,
         BBCODE_INFO_ARGS          => array('list' => 'b'),
@@ -163,9 +164,9 @@ $GLOBALS['PHORUM']['MOD_BBCODE']['BUILTIN'] = array
 
     'quote' => array(
         BBCODE_INFO_DESCRIPTION   =>
-            '[quote]quoted text[/quote]<br/>' .
-            '[quote John Doe]quoted text[/quote]<br/>' .
-            '[quote=John Doe]quoted text[/quote]<br/>' .
+            '[quote]quoted text[/quote]<br />' .
+            '[quote John Doe]quoted text[/quote]<br />' .
+            '[quote=John Doe]quoted text[/quote]<br />' .
             'For adding quoted text.',
         BBCODE_INFO_HASEDITORTOOL => TRUE,
         BBCODE_INFO_DEFAULTSTATE  => 2,
@@ -173,23 +174,23 @@ $GLOBALS['PHORUM']['MOD_BBCODE']['BUILTIN'] = array
         BBCODE_INFO_ARGS          => array('quote' => ''),
         BBCODE_INFO_CALLBACK      => 'bbcode_quote_handler',
         // This one not enabled now, because this is also taken care of
-        // in phorum_api_message_format()
+        // in include/format_functions.php.
         //BBCODE_INFO_STRIPBREAK    => TRUE
 
     ),
 
     'code' => array(
         BBCODE_INFO_DESCRIPTION   =>
-            '[code]<br/>' .
-            ' preformatted<br/>' .
-            '&nbsp;&nbsp;&nbsp;text<br/>' .
+            '[code]<br />' .
+            ' preformatted<br />' .
+            '&nbsp;&nbsp;&nbsp;text<br />' .
             '[/code]',
         BBCODE_INFO_HASEDITORTOOL => TRUE,
         BBCODE_INFO_DEFAULTSTATE  => 2,
         BBCODE_INFO_REPLACEOPEN   => '<pre class="bbcode">',
         BBCODE_INFO_REPLACECLOSE  => '</pre>',
         // This one not enabled now, because this is also taken care of
-        // in phorum_api_message_format()
+        // in include/format_functions.php.
         //BBCODE_INFO_STRIPBREAK    => TRUE
     ),
 

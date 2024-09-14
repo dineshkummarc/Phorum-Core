@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,7 +15,6 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Author: Maurice Makaay <maurice@phorum.org>                              //
@@ -23,11 +23,14 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_ADMIN")) return;
+if(!defined("PHORUM_ADMIN")) return;
 
 define("ADMIN_MODULE", "message_prune");
 
-require_once './include/api/file.php';
+require_once("./include/format_functions.php");
+
+require_once("./include/api/base.php");
+require_once("./include/api/file_storage.php");
 
 // ----------------------------------------------------------------------
 // Possible filter rules description
@@ -196,7 +199,7 @@ $messages   = null;        // selected messages (based on a filter)
 $filters    = array();     // active filters
 $filtermode = "and";       // active filter mode (and / or)
 
-$read_url_template = phorum_api_url(
+$read_url_template = phorum_get_url(
     PHORUM_FOREIGN_READ_URL, '%forum_id%', '%thread_id%','%message_id%');
 
 // If there are messages to delete in the post data, then delete them
@@ -205,7 +208,7 @@ $delete_count = 0;
 if (isset($_POST["deletemessage"]) && is_array($_POST["deletemessage"]))
 {
     $msgids = array_keys($_POST["deletemessage"]);
-    $msgs = $PHORUM['DB']->get_message($msgids, "message_id", true);
+    $msgs = phorum_db_get_message($msgids, "message_id", true);
     $deleted_messages = array();
 
     foreach ($msgs as $msg)
@@ -221,7 +224,7 @@ if (isset($_POST["deletemessage"]) && is_array($_POST["deletemessage"]))
 
         // A hook to allow modules to implement extra or different
         // delete functionality.
-        list($handled, $delids, $msgid, $msg, $delmode) = phorum_api_hook(
+        list($handled, $delids, $msgid, $msg, $delmode) = phorum_hook(
             "before_delete",
             array(false, 0, $msg["message_id"], $msg, $delmode)
         );
@@ -231,37 +234,35 @@ if (isset($_POST["deletemessage"]) && is_array($_POST["deletemessage"]))
         if (! $handled)
         {
             // Delete the message or thread.
-            $delids = $PHORUM['DB']->delete_message(
-                $msg["message_id"], $delmode);
+            $delids = phorum_db_delete_message($msg["message_id"], $delmode);
 
             // Cleanup the attachments for all deleted messages.
             foreach ($delids as $delid) {
-                $files = $PHORUM['DB']->get_message_file_list($delid);
+                $files = phorum_db_get_message_file_list($delid);
                 foreach($files as $file_id=>$data) {
                     phorum_api_file_delete($file_id);
                 }
             }
 
             // For deleted threads, check if we have move notifications
-            // to delete. We unset the forum id, so
-            // $PHORUM['DB']->get_messages() will return messages with
-            // the same thread id in other forums as well (those are the
-            // move notifications).
+            // to delete. We unset the forum id, so phorum_db_get_messages()
+            // will return messages with the same thread id in
+            // other forums as well (those are the move notifications).
             if ($delmode == PHORUM_DELETE_TREE) {
                 $forum_id = $PHORUM["forum_id"];
                 $PHORUM["forum_id"] = 0;
-                $moved = $PHORUM['DB']->get_messages($msg["message_id"]);
+                $moved = phorum_db_get_messages($msg["message_id"]);
                 $PHORUM["forum_id"] = $forum_id;
                 foreach ($moved as $id => $data) {
                     if (!empty($data["moved"])) {
-                        $PHORUM['DB']->delete_message($id, PHORUM_DELETE_MESSAGE);
+                        phorum_db_delete_message($id, PHORUM_DELETE_MESSAGE);
                     }
                 }
             }
         }
 
         // Run a hook for performing custom actions after cleanup.
-        phorum_api_hook("delete", $delids);
+        phorum_hook("delete", $delids);
 
         // Keep track of deleted messages ids for counting the deleted
         // messages at the end. We can't simply add the number of messages
@@ -355,7 +356,8 @@ if (isset($_POST["filterdesc"]))
 
     // Let the database layer turn the metaquery into a real query
     // and run it against the database.
-    $messages = $PHORUM['DB']->metaquery_messagesearch($meta);
+    $messages = phorum_db_metaquery_messagesearch($meta);
+
     if ($messages === NULL) {
         phorum_admin_error("Internal error: failed to run a message search");
     }
@@ -501,39 +503,36 @@ foreach($ruledefs as $filter => $def) {
 </div>
 <div class="input-form-td-message">
 <?php if (!count($_POST)) { ?>
-  <strong>ATTENTION!</strong><br/>
+  <strong>ATTENTION!</strong><br />
   <div style="color:darkred">
     This script can delete A LOT of messages at once. So be careful
     which messages you select for deleting. Use it at your own risk.
     If you do not feel comfortable with this, please make a good
     database backup before deleting any messages.
   </div>
-  <br/>
+  <br />
   The first step in deleting messages is setting up filters
   for finding the messages that you want to delete. Please add these
   filters below (use the plus button for adding and the minus button for
   deleting filters). After you are done, click the "Find messages" button
   to retrieve a list of messages that match the filters. No messages
-  will be deleted during this step.<br/>
-  <br/>
+  will be deleted during this step.<br />
+  <br />
 <?php } ?>
   <form id="filterform" method="post"
-        action="<?php echo phorum_admin_build_url(); ?>"
+        action="<?php echo phorum_admin_build_url('base'); ?>"
         onsubmit="filter.getFilterDescription()">
   <input type="hidden" name="phorum_admin_token" value="<?php echo $PHORUM['admin_token'];?>" />
+
   <input type="hidden" name="module" value="<?php print ADMIN_MODULE ?>" />
   <input type="hidden" id="filterdesc" name="filterdesc" value="" />
   <div style="margin-bottom: 5px">
-    <input id="filtermode_and" type="radio"
-           <?php if ($filtermode=='and') { ?>checked="checked"<?php } ?>
-           name="filtermode" value="and">
-      <label for="filtermode_and">Match all of the following</label>
-    </input>
-    <input id="filtermode_or" type="radio"
-           <?php if ($filtermode=='or') { ?>checked="checked"<?php } ?>
-           name="filtermode" value="or">
-      <label for="filtermode_or">Match any of the following</label>
-    </input>
+    <label for="filtermode_and">
+      <input id="filtermode_and" type="radio" <?php if ($filtermode=='and') { ?>checked="checked"<?php } ?> name="filtermode" value="and" />Match all of the following
+    </label>
+    <label for="filtermode_or">
+      <input id="filtermode_or" type="radio" <?php if ($filtermode=='or') { ?>checked="checked"<?php } ?>name="filtermode" value="or" />Match any of the following
+    </label>
   </div>
   <table class="message_prune_filtertable">
     <tbody id="ruleset">
@@ -548,16 +547,16 @@ foreach($ruledefs as $filter => $def) {
         <th></th>
       </tr>
       <!-- filter rules will be added dynamically at this spot in this table -->
-      <noscript>
       <tr>
         <td colspan="5">
-          <strong>
-            Please, enable JavaScript in your browser. This tool
-            requires JavaScript for its operation.
-          </strong>
+          <noscript>
+            <strong>
+              Please, enable JavaScript in your browser. This tool
+              requires JavaScript for its operation.
+            </strong>
+          </noscript>
         </td>
       </tr>
-      </noscript>
     </tbody>
   </table>
   <input type="submit" value="Find messages" />
@@ -908,9 +907,9 @@ function PhorumFilter(conf)
             if (this.rules[i] == null) continue;
             var rule = this.rules[i];
             if (filterdesc != '') filterdesc += glue;
-            filterdesc += escape(rule.field) + "," +
-                          escape(rule.match) + "," +
-                          escape(rule.query);
+            filterdesc += encodeURIComponent(rule.field) + "," +
+                          encodeURIComponent(rule.match) + "," +
+                          encodeURIComponent(rule.query);
         }
 
         document.getElementById('filterdesc').value = filterdesc;
@@ -995,10 +994,11 @@ if (isset($messages) && is_array($messages))
     </script>
 
     <form id="selectform" method="post"
-          action="<?php echo phorum_admin_build_url(); ?>">
+          action="<?php echo phorum_admin_build_url('base'); ?>">
     <input type="hidden" name="phorum_admin_token" value="<?php echo $PHORUM['admin_token'];?>" />
+
     <input type="hidden" name="module" value="<?php print ADMIN_MODULE ?>" />
-    <input type="hidden" id="filterdesc" name="filterdesc" value="<?php
+    <input type="hidden" name="filterdesc" value="<?php
         // Remember the filter description if one is available
         // (should be at this point).
         if (isset($_POST["filterdesc"])) {
@@ -1017,21 +1017,21 @@ if (isset($messages) && is_array($messages))
       above filters. You can still modify the filters if you like.
       To delete messages or threads, you have to check the checkboxes in front
       of them and click on "Delete selected". If you need more info about a
-      certain item, then click on the subject for expanding the view.<br/>
-      <br/>
+      certain item, then click on the subject for expanding the view.<br />
+      <br />
       The icon and color tell you if are handling a
       <span style="color:#009">message</span>
-      (<img align="top" src="<?php print $PHORUM["http_path"] ?>/images/comment.png"/>)
+      (<img align="top" src="<?php print $PHORUM["http_path"] ?>/images/comment.png" alt="" />)
       or a <span style="color:#c30">thread</span>
-      (<img align="top" src="<?php print $PHORUM["http_path"] ?>/images/comments.png"/>).
-      <br/>
-      <br/>
+      (<img align="top" src="<?php print $PHORUM["http_path"] ?>/images/comments.png" alt="" />).
+      <br />
+      <br />
       <?php if (count($messages) > 10) { ?>
       <input type="button" value="Select all"
              onclick="return select_all_messages()" />
       <input type="submit" value="Delete selected"
              onclick="return delete_selected_messages()" />
-      <br/><br/>
+      <br /><br />
       <?php } ?>
       <table style="width:96%; border-collapse:collapse">
       <?php
@@ -1050,16 +1050,16 @@ if (isset($messages) && is_array($messages))
         ?>
         <tr>
           <td valign="top" style="border-bottom:1px dashed #ccc">
-            <input type="checkbox" name="deletemessage[<?php print $id ?>]"/>
+            <input type="checkbox" name="deletemessage[<?php print $id ?>]" />
           </td>
           <td valign="top" style="width:100%;border-bottom:1px dashed #ccc">
             <span style="float:right">
               <?php print htmlspecialchars($data["author"]) ?>
-              <?php print phorum_api_format_date($PHORUM['short_date'], $data["datestamp"]) ?>
+              <?php print phorum_date($PHORUM['short_date'], $data["datestamp"]) ?>
             </span>
             <img align="top"
                  title="<?php print $alt ?>" alt="<?php print $alt ?>"
-                 src="<?php print $PHORUM["http_path"]."/images/".$icon ?>"/>
+                 src="<?php print $PHORUM["http_path"]."/images/".$icon ?>" />
               <a style="text-decoration: none" href="#"
                  onclick="return toggle_msginfo(<?php print $id ?>)">
                 <span style="color:<?php print $color?>">
@@ -1071,24 +1071,24 @@ if (isset($messages) && is_array($messages))
               if ($data["user_id"]) {
                   print "Posted by authenticated user \"".
                         htmlspecialchars($data["user_username"]) .
-                        "\" (user_id ".$data["user_id"].") from ".$data['ip']."<br/>";
+                        "\" (user_id ".$data["user_id"].") from ".$data['ip']."<br />";
               }
-              print "Date and time: " . phorum_api_format_date($PHORUM['short_date_time'], $data["datestamp"]) . "<br/>";
+              print "Date and time: " . phorum_date($PHORUM['short_date_time'], $data["datestamp"]) . "<br />";
               // Might not be available (for announcements).
               // I won't put a lot of stuff in here for handling announcements,
               // because 5.2 handles them differently than 5.1.
               if (isset($forum_info[$data["forum_id"]])) {
-                  print "Forum: ".  $forum_info[$data["forum_id"]] . "<br/>";
+                  print "Forum: ".  $forum_info[$data["forum_id"]] . "<br />";
               }
               if ($data["parent_id"] == 0) {
-                  print "Messages in this thread: {$data["thread_count"]}<br/>";
+                  print "Messages in this thread: {$data["thread_count"]}<br />";
                   if ($data["thread_count"] > 1) {
                       print "Thread's last post: " .
-                            phorum_api_format_date($PHORUM['short_date_time'], $data["thread_modifystamp"]) . "<br/>";
+                            phorum_date($PHORUM['short_date_time'], $data["thread_modifystamp"]) . "<br />";
                   }
               }
               ?>
-              <a target="_blank" href="<?php print $url ?>">Open this message in a new window</a><br/>
+              <a target="_blank" href="<?php print $url ?>">Open this message in a new window</a><br />
               <div class="message_prune_msginfo_body">
                 <?php print $strippedbody ?>
               </div>
@@ -1098,7 +1098,7 @@ if (isset($messages) && is_array($messages))
       } ?>
 
       </table>
-      <br/>
+      <br />
       <input type="button" value="Select all"
              onclick="return select_all_messages()" />
       <input type="submit" value="Delete selected"

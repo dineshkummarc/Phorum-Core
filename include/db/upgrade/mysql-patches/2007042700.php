@@ -15,5 +15,5 @@ if(!isset($PHORUM['banlist_version'])) {
     $update_settings['banlist_version']=0;
 }
 
-$PHORUM['DB']->update_settings($update_settings);
+phorum_db_update_settings($update_settings);
 ?>

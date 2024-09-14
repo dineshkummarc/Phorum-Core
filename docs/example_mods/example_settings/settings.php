@@ -16,7 +16,7 @@ if(count($_POST))
     // Force the displaycount to be an integer value.
     settype($PHORUM["mod_example_settings"]["displaycount"], "int");
 
-    if(! $PHORUM['DB']->update_settings(array("mod_example_settings"=>$PHORUM["mod_example_settings"]))) {
+    if(! phorum_db_update_settings(array("mod_example_settings"=>$PHORUM["mod_example_settings"]))) {
         $error="Database error while updating settings.";
     } else {
         echo "Settings Updated<br />";
@@ -32,7 +32,7 @@ if (!isset($PHORUM["mod_example_settings"]["displaycount"]))
 // We build the settings form by using the PhorumInputForm object. When
 // creating your own settings screen, you'll only have to change the
 // "mod" hidden parameter to the name of your own module.
-require_once('./include/admin/PhorumInputForm.php');
+include_once "./include/admin/PhorumInputForm.php";
 $frm = new PhorumInputForm ("", "post", "Save");
 $frm->hidden("module", "modsettings");
 $frm->hidden("mod", "example_settings");

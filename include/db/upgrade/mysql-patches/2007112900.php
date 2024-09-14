@@ -1,18 +1,17 @@
 <?php
 if(!defined("PHORUM_ADMIN")) return;
 
-require_once('./include/api/forums.php');
+include_once "./include/admin_functions.php";
 
-// Rebuild the forum-paths for each and every forum in the tree.
-$forums = phorum_api_forums_build_path();
+// rebuild the forum-paths for each and every forum in the tree
+$forums = phorum_admin_build_path_array();
 unset($forums[0]);
 
-foreach($forums as $fid => $forumpath)
-{
-    $PHORUM['DB']->update_forum(array(
-        'forum_id'   => $fid,
-        'forum_path' => $forumpath
-    ));
+foreach($forums as $fid => $forumpath) {
+
+    $update_forum=array('forum_id'=>$fid, 'forum_path'=>$forumpath);
+    phorum_db_update_forum($update_forum);
+
 }
 
 ?>

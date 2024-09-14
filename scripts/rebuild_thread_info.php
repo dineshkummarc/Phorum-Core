@@ -15,11 +15,12 @@ if ('cli' != php_sapi_name()) {
 define('phorum_page', 'rebuild_thread_info');
 define('PHORUM_ADMIN', 1);
 
-require_once(dirname(__FILE__).'/../include/api.php');
-require_once PHORUM_PATH.'/include/api/thread.php';
+chdir(dirname(__FILE__) . "/..");
+require_once './common.php';
+include './include/thread_info.php';
 
 // Make sure that the output is not buffered.
-phorum_api_buffer_clear();
+phorum_ob_clean();
 
 if (! ini_get('safe_mode')) {
     set_time_limit(0);
@@ -28,9 +29,7 @@ if (! ini_get('safe_mode')) {
 
 print "\nRebuilding thread info meta data ...\n";
 
-
-
-$count_total = $PHORUM['DB']->interact(
+$count_total = phorum_db_interact(
     DB_RETURN_VALUE,
     "SELECT count(*)
      FROM   {$PHORUM["message_table"]}
@@ -38,7 +37,7 @@ $count_total = $PHORUM['DB']->interact(
             message_id = thread"
 );
 
-$res = $PHORUM['DB']->interact(
+$res = phorum_db_interact(
     DB_RETURN_RES,
     "SELECT message_id, forum_id
      FROM   {$PHORUM["message_table"]}
@@ -48,9 +47,9 @@ $res = $PHORUM['DB']->interact(
 
 $size = strlen($count_total);
 $count = 0;
-while ($row = $PHORUM['DB']->fetch_row($res, DB_RETURN_ROW)) {
+while ($row = phorum_db_fetch_row($res, DB_RETURN_ROW)) {
     $PHORUM['forum_id'] = $row[1];
-    phorum_api_thread_update_metadata($row[0]);
+    phorum_update_thread_info($row[0]);
 
     $count ++;
 

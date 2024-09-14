@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,12 +15,12 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM")) return;
+if(!defined("PHORUM")) return;
 
-require_once PHORUM_PATH.'/include/api/file.php';
+require_once("./include/api/base.php");
+require_once("./include/api/file_storage.php");
 
 // Clean up unlinked attachments from the database.
 foreach ($message["attachments"] as $info) {
@@ -33,7 +34,7 @@ foreach ($message["attachments"] as $info) {
 $PHORUM["posting_template"] = "message";
 $PHORUM["DATA"]["OKMSG"] = $PHORUM["DATA"]["LANG"]["AttachCancel"];
 $PHORUM["DATA"]["BACKMSG"] = $PHORUM["DATA"]["LANG"]["BackToList"];
-$PHORUM["DATA"]["URL"]["REDIRECT"] = phorum_api_url(PHORUM_LIST_URL);
+$PHORUM["DATA"]["URL"]["REDIRECT"] = phorum_get_url(PHORUM_LIST_URL);
 
 $error_flag = true;
 
@@ -71,5 +72,5 @@ $error_flag = true;
  *     </hookcode>
  */
 if (isset($PHORUM["hooks"]["posting_action_cancel_post"]))
-    phorum_api_hook("posting_action_cancel_post", $message);
+    phorum_hook("posting_action_cancel_post", $message);
 ?>

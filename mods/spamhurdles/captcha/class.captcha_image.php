@@ -11,7 +11,7 @@ class captcha_image extends captcha_base
         $captcha =
             '<div id="spamhurdles_captcha_image">' .
             '<img class="captcha_image" src="{IMAGEURL}" alt="CAPTCHA" ' .
-            'title="CAPTCHA"/></div>';
+            'title="CAPTCHA" /></div>';
 
         return array($captcha, "");
     }
@@ -61,10 +61,10 @@ class captcha_image extends captcha_base
         for ($i=0; $i<15; $i++) {
             $x = random_int(0, 60*strlen($question));
             $y = random_int(0, 100);
-            $size = random_int(30,90);
+            $size = random_int(30, 90);
             $rfont = $fonts[random_int(0, count($fonts)-1)];
             $rcolor = $colors[random_int(0, count($colors)-1)];
-            $angle = -90 + random_int(0,180);
+            $angle = -90 + random_int(0, 180);
             $char = chr(random_int(ord('A'), ord('A')+26));
             imagettftext($img, $size, $angle, $x, $y, $rcolor, $rfont, $char);
         }
@@ -76,7 +76,7 @@ class captcha_image extends captcha_base
         {
             $fontcolor = imagecolorallocate($img, random_int(0, 200), 0, 0);
             $rfont = $fonts[random_int(0, count($fonts)-1)];
-            $size = random_int(25, 32);
+            $size = rand(25, 32);
             $char = substr($question, $i, 1);
             $angle = -15 + random_int(0, 30);
 

@@ -24,15 +24,6 @@ function phorum_setup_announcements ()
             return;
     }
 
-    // Check if we are on a page on which the announcements have to be shown.
-    if (!empty($PHORUM["mod_announcements"]["pages"]["home"])) {
-        if ($PHORUM['vroot'] != $PHORUM['forum_id'] || phorum_page != 'index')
-            return;
-    } else {
-        if (empty($PHORUM["mod_announcements"]["pages"][phorum_page]))
-            return;
-    }
-
     // Check if we need to show announcements.
     $ann_forum_id = NULL;
 
@@ -57,7 +48,7 @@ function phorum_setup_announcements ()
     if ($ann_forum_id === NULL) return;
 
     // Retrieve the last number of posts from the announcement forum.
-    $messages = $PHORUM['DB']->get_recent_messages(
+    $messages = phorum_db_get_recent_messages(
         $PHORUM["mod_announcements"]["number_to_show"],
         0, $ann_forum_id, 0, true
     );
@@ -71,18 +62,17 @@ function phorum_setup_announcements ()
     if ($PHORUM["DATA"]["LOGGEDIN"]) {
         $newflagkey = $ann_forum_id."-".$PHORUM['user']['user_id'];
         if ($PHORUM['cache_newflags']) {
-            $newinfo = phorum_api_cache_get('newflags',$newflagkey,$PHORUM['cache_version']);
+            $newinfo = phorum_cache_get('newflags',$newflagkey,$PHORUM['cache_version']);
         }
         if($newinfo == NULL) {
-            $newinfo = $PHORUM['DB']->newflag_get_flags($ann_forum_id);
+            $newinfo = phorum_db_newflag_get_flags($ann_forum_id);
             if ($PHORUM['cache_newflags']) {
-                phorum_api_cache_put('newflags',$newflagkey,$newinfo,86400,$PHORUM['cache_version']);
+                phorum_cache_put('newflags',$newflagkey,$newinfo,86400,$PHORUM['cache_version']);
             }
         }
     }
 
-    require_once PHORUM_PATH.'/include/api/format/messages.php';
-
+    require_once("./include/format_functions.php");
 
     // Process the announcements.
     foreach($messages as $message)
@@ -109,7 +99,7 @@ function phorum_setup_announcements ()
                 $message["new"] = $new
                                 ? $PHORUM["DATA"]["LANG"]["newflag"]
                                 : NULL;
-                $message["URL"]["NEWPOST"] = phorum_api_url(
+                $message["URL"]["NEWPOST"] = phorum_get_url(
                     PHORUM_FOREIGN_READ_URL,
                     $message["forum_id"],
                     $message["thread"],
@@ -125,10 +115,10 @@ function phorum_setup_announcements ()
 
         // Setup template data for the message.
         unset($message['body']);
-        $message["lastpost"] = phorum_api_format_date($PHORUM["short_date_time"], $message["modifystamp"]);
+        $message["lastpost"] = phorum_date($PHORUM["short_date_time"], $message["modifystamp"]);
         $message["raw_datestamp"] = $message["datestamp"];
-        $message["datestamp"] = phorum_api_format_date($PHORUM["short_date_time"], $message["datestamp"]);
-        $message["URL"]["READ"] = phorum_api_url(PHORUM_FOREIGN_READ_URL, $message["forum_id"], $message["message_id"]);
+        $message["datestamp"] = phorum_date($PHORUM["short_date_time"], $message["datestamp"]);
+        $message["URL"]["READ"] = phorum_get_url(PHORUM_FOREIGN_READ_URL, $message["forum_id"], $message["message_id"]);
         $PHORUM["DATA"]["ANNOUNCEMENTS"][] = $message;
     }
 
@@ -136,11 +126,11 @@ function phorum_setup_announcements ()
     if (!isset($PHORUM["DATA"]["ANNOUNCEMENTS"])) return;
 
     // format / clean etc. the messages found
-    $PHORUM["DATA"]["ANNOUNCEMENTS"]= phorum_api_format_messages($PHORUM["DATA"]["ANNOUNCEMENTS"]);
+    $PHORUM["DATA"]["ANNOUNCEMENTS"]= phorum_format_messages($PHORUM["DATA"]["ANNOUNCEMENTS"]);
 
     // Build the announcements code.
     ob_start();
-    include phorum_api_template("announcements::announcements");
+    include phorum_get_template("announcements::announcements");
     $PHORUM['DATA']['MOD_ANNOUNCEMENTS'] = ob_get_contents();
     ob_end_clean();
 }

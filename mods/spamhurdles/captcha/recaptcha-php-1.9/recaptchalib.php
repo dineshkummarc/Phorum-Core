@@ -122,9 +122,9 @@ function recaptcha_get_html ($pubkey, $error = null, $use_ssl = false)
         return '<script type="text/javascript" src="'. $server . '/challenge?k=' . $pubkey . $errorpart . '"></script>
 
     <noscript>
-        <iframe src="'. $server . '/noscript?k=' . $pubkey . $errorpart . '" height="300" width="500" frameborder="0"></iframe><br>
-        <textarea name="recaptcha_challenge_field" rows="3" cols="40"></textarea>
-        <input type="hidden" name="recaptcha_response_field" value="manual_challenge">
+          <iframe src="'. $server . '/noscript?k=' . $pubkey . $errorpart . '" height="300" width="500" frameborder="0"></iframe><br />
+          <textarea name="recaptcha_challenge_field" rows="3" cols="40"></textarea>
+          <input type="hidden" name="recaptcha_response_field" value="manual_challenge">
     </noscript>';
 }
 
@@ -160,34 +160,35 @@ function recaptcha_check_answer ($privkey, $remoteip, $challenge, $response)
 
 
 
-    // Discard spam submissions.
-    if ($challenge == null || strlen($challenge) == 0 || $response == null || strlen($response) == 0) {
-            $recaptcha_response = new ReCaptchaResponse();
-            $recaptcha_response->is_valid = false;
-            $recaptcha_response->error = 'incorrect-captcha-sol';
-            return $recaptcha_response;
-    }
+        //discard spam submissions
+        if ($challenge == null || strlen($challenge) == 0 || $response == null || strlen($response) == 0) {
+                $recaptcha_response = new ReCaptchaResponse();
+                $recaptcha_response->is_valid = false;
+                $recaptcha_response->error = 'incorrect-captcha-sol';
+                return $recaptcha_response;
+        }
 
-    $response = _recaptcha_http_post (RECAPTCHA_VERIFY_SERVER, "/verify",
-                                      array (
-                                             'privatekey' => $privkey,
-                                             'remoteip' => $remoteip,
-                                             'challenge' => $challenge,
-                                             'response' => $response
-                                             )
-                                      );
+        $response = _recaptcha_http_post (RECAPTCHA_VERIFY_SERVER, "/verify",
+                                          array (
+                                                 'privatekey' => $privkey,
+                                                 'remoteip' => $remoteip,
+                                                 'challenge' => $challenge,
+                                                 'response' => $response
+                                                 )
+                                          );
 
-    $answers = explode ("\n", $response [1]);
-    $recaptcha_response = new ReCaptchaResponse();
+        $answers = explode ("\n", $response [1]);
+        $recaptcha_response = new ReCaptchaResponse();
 
-    if (trim ($answers [0]) == 'true') {
-            $recaptcha_response->is_valid = true;
-    }
-    else {
-            $recaptcha_response->is_valid = false;
-            $recaptcha_response->error = $answers [1];
-    }
-    return $recaptcha_response;
+        if (trim ($answers [0]) == 'true') {
+                $recaptcha_response->is_valid = true;
+        }
+        else {
+                $recaptcha_response->is_valid = false;
+                $recaptcha_response->error = $answers [1];
+        }
+        return $recaptcha_response;
+
 }
 
 /**

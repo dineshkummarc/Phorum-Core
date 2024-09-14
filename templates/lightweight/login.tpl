@@ -27,6 +27,7 @@
                     <br />
                     <input type="submit" value="{LANG->Submit}" />
                 </form>
+
             </td>
             <td width="50%" valign="top">
                 <h4>{LANG->LostPassword}</h4>
@@ -34,7 +35,7 @@
                     {POST_VARS}
                     {LANG->LostPassInfo}<br />
                     <br />
-                    <input type="text" id="lostpass" name="lostpass" size="30" value="" /><br />
+                    <input type="text" name="lostpass" size="30" value="" /><br />
                     <br />
                     <input type="submit" value="{LANG->Submit}" />
                 </form>

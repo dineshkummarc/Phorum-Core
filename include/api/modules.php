@@ -21,16 +21,18 @@
  * This script implements the Phorum module admin API.
  *
  * This API is used for managing Phorum modules. It can be used to retrieve
- * information about the available modules, to take care of activating
- * and deactivating them and to call hook functions from those modules.
+ * information about the available modules and takes care of activating
+ * and deactivating them.
  *
  * @package    PhorumAPI
- * @subpackage Modules
+ * @subpackage ModulesAPI
  * @copyright  2016, Phorum Development Team
  * @license    Phorum License, http://www.phorum.org/license.txt
  */
 
-// {{{ Variable definitions
+if (!defined("PHORUM")) return;
+
+// {{{ Constant and variable definitions
 /**
  * This array describes deprecated module hook names, which have been
  * replaced by new hook names. For backward compatibility, the mods
@@ -41,9 +43,7 @@ $GLOBALS['PHORUM']['API']['mods_deprecated_hooks'] = array(
     'pre_edit'         => 'before_edit',
     'post_post'        => 'after_post',
     'user_check_login' => 'user_authenticate',
-    'hide'             => 'hide_thread',
-    'email_user_start' => 'mail_prepare',
-    'send_mail'        => 'mail_send'
+    'hide'             => 'hide_thread'
 );
 
 /**
@@ -93,18 +93,18 @@ function phorum_api_modules_list()
     $deprecated = array();
     $problems   = array();
 
-    require_once PHORUM_PATH.'/include/version_functions.php';
+    include_once('./include/version_functions.php');
 
-    $dh = opendir(PHORUM_PATH.'/mods');
+    $dh = opendir("./mods");
     if (! $dh) trigger_error(
         "Unable to create a list of available modules: " .
-        "opendir of directory \"{phorum dir}/mods\" failed.",
+        "opendir of directory \"./mods\" failed.",
         E_USER_ERROR
     );
 
     while ($entry = readdir($dh))
     {
-        // Some entries that we skip by default.
+        // Some entries which we skip by default.
         // ATTIC    : a directory that I (maurice) sometimes use for storing
         //            deprecated modules or for moving stuff temporarily out
         //            of the way.
@@ -116,11 +116,11 @@ function phorum_api_modules_list()
 
         // Read in the module information.
         $lines = array();
-        if (file_exists(PHORUM_PATH."/mods/$entry/info.txt")) {
-            $lines = file(PHORUM_PATH."/mods/$entry/info.txt");
-        } elseif (is_file(PHORUM_PATH."/mods/$entry") && substr($entry, -4)==".php") {
+        if (file_exists("./mods/$entry/info.txt")) {
+            $lines = file("./mods/$entry/info.txt");
+        } elseif (is_file("./mods/$entry") && substr($entry, -4)==".php") {
             $entry = str_replace(".php", "", $entry);
-            $data = file_get_contents(PHORUM_PATH."/mods/$entry.php");
+            $data = file_get_contents("./mods/$entry.php");
             if($data = stristr($data, "/* phorum module info")){
                 $data = substr($data, 0, strpos($data, "*/"));
                 $lines = preg_split('!(\r|\n|\r\n)!', $data);
@@ -138,7 +138,6 @@ function phorum_api_modules_list()
 
         // Parse the module information.
         $info = array();
-        $info['module'] = $entry;
         $info['version_disabled'] = false;
         foreach ($lines as $line) {
 
@@ -152,7 +151,7 @@ function phorum_api_modules_list()
                         $parts[1] = "$hook|$function";
                     }
                     $info["hooks"][]=trim($parts[1]);
-                } elseif ($parts[0]=="priority") {
+                } elseif ($parts[0]=="priority"){
                     $prio = trim($parts[1]);
                     if (preg_match('/^run\s+hook\s+(.+)\s+(before|after)\s(.+)$/i', $prio, $m)) {
                         $priorities['hook'][$m[1]][$entry][] = $m;
@@ -161,9 +160,9 @@ function phorum_api_modules_list()
                     } else {
                         $problems[] =
                             "Priority configuration error for module " .
-                            htmlspecialchars($entry) . "<br/>" .
+                            htmlspecialchars($entry) . "<br />" .
                             "Cannot parse priority " .
-                            "\"" . htmlspecialchars($prio) . "\"<br/>";
+                            "\"" . htmlspecialchars($prio) . "\"<br />";
                     }
                 } elseif ($parts[0]=="required_version" ||
                           $parts[0]=="require_version") {
@@ -175,7 +174,7 @@ function phorum_api_modules_list()
                     $req = phorum_parse_version($required_ver);
 
                     // If an admin is using a development or snapshot release,
-                    // the we asume that he knows what he's doing.
+                    // then we asume that he knows what he's doing.
                     if ($cur[0] == 'snapshot' ||
                         $cur[0] == 'development') {
                         // noop
@@ -184,10 +183,7 @@ function phorum_api_modules_list()
                     elseif (phorum_compare_version($cur, $req) == -1) {
                         $info['version_disabled'] = true;
                     }
-                } elseif ($parts[0] == "compat") {
-                    list ($extension,$function) = explode('|', trim($parts[1]));
-                    if (empty($info['compat'])) $info['compat'] = array();
-                    $info['compat'][$function] = $extension;
+
                 } else {
                     $info[$parts[0]] = trim($parts[1]);
                 }
@@ -200,7 +196,7 @@ function phorum_api_modules_list()
             $info['enabled'] = 0;
         }
 
-        if (file_exists(PHORUM_PATH."/mods/$entry/settings.php")){
+        if (file_exists("./mods/$entry/settings.php")){
             $info["settings"]=true;
         } else {
             $info["settings"]=false;
@@ -226,7 +222,7 @@ function phorum_api_modules_list()
                     $info['version']     // required module's version
                 ) == -1) {
                 $modules[$module]['url'] = $info['url'];
-                $problems[] = "The module \"{$modinfo['title']}\" is no longer included in the core Phorum distribution. A more recent version of this module (version {$info['version']} or higher) is available at the phorum.org website. Please download and install that version. For more information, visit <a href=\"{$info['url']}\" target=\"_new\">the module's page at phorum.org</a>.";
+                $problems[] = "The module \"{$modinfo['title']}\" is no longer included in the core Phorum distribution. A more recent version of this module (version {$info['version']} or higher) is available at the phorum.org website. Please download and install that version. For more information, visit <a href=\"{$info['url']}\" target=\"_blank\">the module's page at phorum.org</a>.";
             }
         }
     }
@@ -270,8 +266,7 @@ function phorum_api_modules_enable($module)
 
     // Check if the module is valid.
     if (!isset($PHORUM["API"]["mods_modules"][$module])) trigger_error(
-        'Unable to enable module "'.htmlspecialchars($module).'": ' .
-        'no such module available.',
+        "Unable to enable module \"$module\": no such module available.",
         E_USER_ERROR
     );
 
@@ -304,37 +299,11 @@ function phorum_api_modules_disable($module)
 /**
  * Store the module information in the database.
  *
- * This function will write the generated module data ($PHORUM["mods"] and
+ * This function will sort out all module and hook priorities for the
+ * enabled modules and write the result data ($PHORUM["mods"] and
  * $PHORUM["hooks"]) to the database.
  */
 function phorum_api_modules_save()
-{
-    global $PHORUM;
-
-    phorum_api_modules_generate_moduleinfo();
-
-    // Store the settings in the database.
-    $PHORUM['DB']->update_settings(array(
-        "hooks"       => $PHORUM["hooks"],
-        "mods"        => $PHORUM["mods"],
-        "moddblayers" => $PHORUM["moddblayers"]
-    ));
-
-    // Reset the module information update checking data.
-    phorum_api_modules_check_updated_info(TRUE);
-}
-// }}}
-
-// {{{ Function: phorum_api_modules_generate_moduleinfo()
-/**
- * Generate the module information based on enabled/disabled state
- *
- * This function will sort out all module and hook priorities for the
- * enabled modules and fills $PHORUM["mods"], $PHORUM["hooks"] and
- * $PHORUM['moddblayers'] with the correct values.
- *
- */
-function phorum_api_modules_generate_moduleinfo()
 {
     global $PHORUM;
 
@@ -517,15 +486,14 @@ function phorum_api_modules_generate_moduleinfo()
     }
     $PHORUM["hooks"] = $hooks;
 
-    // Create the module dblayer version configuration.
-    $moddblayers = array();
-    foreach ($modules as $mod) {
-        if (isset($mod['dbversion']) &&
-            preg_match('/^\d{10}$/', $mod['dbversion'])) {
-            $moddblayers[$mod['module']] = $mod['dbversion'];
-        }
-    }
-    $PHORUM["moddblayers"] = $moddblayers;
+    // Store the settings in the database.
+    phorum_db_update_settings(array(
+        "hooks" => $PHORUM["hooks"],
+        "mods"  => $PHORUM["mods"]
+    ));
+
+    // Reset the module information update checking data.
+    phorum_api_modules_check_updated_info(TRUE);
 }
 // }}}
 
@@ -556,8 +524,8 @@ function phorum_api_modules_check_updated_info($do_reset = FALSE)
         foreach ($PHORUM['mods'] as $mod => $active)
         {
             if (!$active) continue;
-            $info = PHORUM_PATH."/mods/$mod/info.txt";
-            $filemod = PHORUM_PATH."/mods/$mod.php";
+            $info = "./mods/$mod/info.txt";
+            $filemod = "./mods/$mod.php";
             if (file_exists($info)) {
                 $time = @filemtime($info);
             } elseif (file_exists($filemod)) {
@@ -579,7 +547,7 @@ function phorum_api_modules_check_updated_info($do_reset = FALSE)
 
     // Store the settings in the database if a reset is requested.
     if ($do_reset) {
-        $PHORUM['DB']->update_settings(array(
+        phorum_db_update_settings(array(
             "mod_info_timestamps" => $new
         ));
     }
@@ -588,77 +556,9 @@ function phorum_api_modules_check_updated_info($do_reset = FALSE)
 }
 // }}}
 
-// {{{ Function: phorum_api_modules_check_updated_dblayer()
-/**
- * Check if there are modules for which the database layer code is updated.
- *
- * @return array
- *     An array of required module database upgrades. Each element in the
- *     array is an array on its own, containing information about a single
- *     required upgrade. The fields in this array are:
- *     - module: The module for which the upgrade is required;
- *     - version: The version number for the upgrade;
- *     - file: The file that contains the upgrade code.
- */
-function phorum_api_modules_check_updated_dblayer()
-{
-    global $PHORUM;
-
-    $need_update = array();
-
-    if (!empty($PHORUM['moddblayers']))
-    {
-        foreach ($PHORUM['moddblayers'] as $mod => $reqversion)
-        {
-            // Check if the module is currently enabled. If not, then we
-            // will not include any upgrades for it.
-            if (empty($PHORUM['mods'][$mod])) continue;
-
-            // Determine the installed db layer version. If no installation
-            // was done at all yet, then use version zero.
-            $curversion = !empty($PHORUM["mod_{$mod}_dbversion"])
-                        ? $PHORUM["mod_{$mod}_dbversion"] : 0;
-
-            // Check if the required database layer version is higher
-            // than the current database layer version.
-            if ($reqversion > $curversion)
-            {
-                // Find the available db upgrade files for the module.
-                // Filter out the upgrades that have to be run.
-                $type = $PHORUM['DBCONFIG']['type'];
-                $dbdir = PHORUM_PATH."/mods/$mod/db/upgrade/$type";
-                $dir = @opendir($dbdir);
-                if ($dir) {
-                    while ($entry = readdir($dir)) {
-                        if (preg_match('/^(\d{10})\.php$/', $entry, $m)) {
-                            if ($m[1] > $curversion && $m[1] <= $reqversion) {
-                                $need_update[$mod.'/'.$m[1]] = array(
-                                    'type'      => 'module',
-                                    'module'    => $mod,
-                                    'version'   => $m[1],
-                                    'file'      => "$dbdir/$entry"
-                                );
-                            }
-                        }
-                    }
-                    closedir($dir);
-                }
-            }
-        }
-
-        // Now that we collected the module db layer upgrade files,
-        // we sort them, so the upgrade files for each module will
-        // be run in the correct order.
-        ksort($need_update);
-    }
-
-    return $need_update;
-}
-// }}}
-
 // {{{ Function: module_sort()
 /**
- * A small utility function that can be used to sort modules by name
+ * A small utility function which can be used to sort modules by name
  * using the uasort() command.
  */
 function module_sort($a, $b) { return strcasecmp($a["title"], $b["title"]); }

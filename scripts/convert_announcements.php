@@ -1,18 +1,19 @@
 #!/usr/bin/php
 <?php
-if ('cli' != php_sapi_name()) {
-    echo "This script cannot be run from a browser.";
-    return;
-}
+
 define('PHORUM_ADMIN', 1);
 
 define('phorum_page', 'convert_announcements');
 
+if ('cli' != php_sapi_name()) {
+    echo "This script cannot be run from a browser.";
+    return;
+}
 chdir(dirname(__FILE__) . "/..");
-require_once('./common.php');
+require_once './common.php';
 
 // Make sure that the output is not buffered.
-phorum_api_buffer_clear();
+phorum_ob_clean();
 
 // init module
 $PHORUM["mod_announcements"] = array(
@@ -43,9 +44,10 @@ $template=array(
     "float_to_top"=>0,
     "display_ip_address"=>0,
     "allow_email_notify"=>1,
-    "language"=>$PHORUM["default_forum_options"]["language"],
+    "language"=>$$PHORUM["default_forum_options"]["language"],
     "email_moderators"=>0,
     "display_order"=>99,
+    "edit_post"=>1,
     "pub_perms" =>  1,
     "reg_perms" =>  3
 );
@@ -53,7 +55,7 @@ $template=array(
 $vroots[] = 0;
 
 // get all current forums
-$forums = $PHORUM['DB']->get_forums();
+$forums = phorum_db_get_forums();
 
 // find the vroots
 foreach($forums as $forum){
@@ -69,22 +71,21 @@ foreach($vroots as $vroot){
     $template["parent_id"] = $vroot;
 
     // add the new announcement forum for this vroot
-    $forum_id = $PHORUM['DB']->add_forum($template);
+    $forum_id = phorum_db_add_forum($template);
 
     // activate the forum in the announcements module
     $PHORUM["mod_announcements"]["vroot"][$vroot] = $forum_id;
 
     // update messages to the new forum_id
     $sql = "update {$PHORUM['message_table']} set forum_id=$forum_id, sort=2 where forum_id=$vroot";
-    $PHORUM['DB']->interact(DB_RETURN_RES, $sql);
+    phorum_db_interact(DB_RETURN_RES, $sql);
 
     // update the new forums stats
     $PHORUM["forum_id"] = $forum_id;
-    $PHORUM['DB']->update_forum_stats(true);
+    phorum_db_update_forum_stats(true);
 
 }
 
-// add the hooks and functions to the module
 // add the hooks and functions to the module
 if(!in_array("announcements", $PHORUM["hooks"]["common"]["mods"])){
     $PHORUM["hooks"]["common"]["mods"][] = "announcements";
@@ -101,7 +102,7 @@ if(!in_array("phorum_show_announcements", $PHORUM["hooks"]["after_header"]["func
 $PHORUM["mods"]["announcements"] = 1;
 
 // update module in phorum settings
-$PHORUM['DB']->update_settings(
+phorum_db_update_settings(
     array(
         "mods" => $PHORUM["mods"],
         "hooks" => $PHORUM["hooks"],

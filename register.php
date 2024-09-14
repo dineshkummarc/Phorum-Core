@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,14 +15,13 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
-
 define('phorum_page','register');
-require_once './common.php';
 
-require_once PHORUM_PATH.'/include/api/mail.php';
-require_once PHORUM_PATH.'/include/api/ban.php';
+include_once("./common.php");
+include_once("./include/profile_functions.php");
+include_once("./include/email_functions.php");
+include_once("./include/format_functions.php");
 
 // set all our URL's
 phorum_build_common_urls();
@@ -68,33 +68,6 @@ if (isset($PHORUM["args"]["approve"])) {
             // Save the new user active status.
             $moduser["user_id"] = $user_id;
             phorum_api_user_save($moduser);
-
-            /*
-             * [hook]
-             *     after_correct_validation
-             *
-             * [description]
-             *     This hook can be used for performing tasks after a user has correctly
-             *     validated himself (aka clicked on the verify link in his email).<sbr />
-             *
-             * [category]
-             *     User data handling
-             *
-             * [when]
-             *     In <filename>register.php</filename>, right after saving the
-             *     activated user
-             *
-             * [input]
-             *     An associative array containing:
-             *     user_id, active, email of the currently activating user
-             *
-             * [output]
-             *     Same as input, with possibly changed contents
-             *
-             *
-             */
-             $moduser['email'] = $user['email'];
-             $moduser = phorum_api_hook("after_correct_validation", $moduser);
         }
 
     // Validation code incorrect.
@@ -102,7 +75,7 @@ if (isset($PHORUM["args"]["approve"])) {
         $PHORUM["DATA"]["OKMSG"] = $PHORUM["DATA"]["LANG"]["RegVerifyFailed"];
     }
 
-    phorum_api_output("message");
+    phorum_output("message");
     return;
 
 }
@@ -110,7 +83,7 @@ if (isset($PHORUM["args"]["approve"])) {
 // CSRF protection: we do not accept posting to this script,
 // when the browser does not include a Phorum signed token
 // in the request.
-phorum_api_request_check_token();
+phorum_check_posting_token();
 
 $error = ''; // Init error as empty.
 
@@ -128,87 +101,25 @@ if (count($_POST)) {
             $_POST[$key] = trim($val);
         }
     }
-    /*
-     * [hook]
-     *     before_register_check
-     *
-     * [description]
-     *     This hook can be used for performing tasks before the checks on user
-     *     registration. This hook is useful if you want to modify the data before
-     *     the unique checks on username or email address or if you want to skip specific
-     *     checks.<sbr/>
-     *
-     * [category]
-     *     User data handling
-     *
-     * [when]
-     *     In <filename>register.php</filename>, right before checks on the data
-     *     for a new user are done.
-     *
-     * [input]
-     *     An array containing:
-     *     the $_POST array of user data of the soon-to-be-registered user
-     *     an array telling which checks are going to be done after the hook is run
-     *     and the error variable to allow the module to return errors
-     *
-     * [output]
-     *     Same as input, with possibly changed contents
-     *
-     * [example]
-     *     <hookcode>
-     *     function phorum_mod_foo_before_register_check ($data)
-     *     {
-     *         list($userdata,$checks,$error) = $data;
-     *         // modify the username ...
-     *         if($userdata['username'] == 'foo') {
-     *              $userdata['username']= 'bar';
-     *         }
-     *
-     *         // skip the email validity check
-     *         $checks['email_valid']=0;
-     *
-     *         // return an error
-     *         $error = "You can't continue as module is run! ;-)";
-     *
-     *         return array($userdata,$checks,$error);
-     *     }
-     *     </hookcode>
-     */
-    $todo_checks = array(
-        'username_empty' => 1,
-        'username_unique'=> 1,
-        'email_valid'    => 1,
-        'email_unique'   => 1,
-        'password'       => 1,
-        'banlists'       => 1,
-    );
-    if (isset($PHORUM["hooks"]["before_register_check"])) {
-        list($_POST,$todo_checks,$error) = phorum_api_hook("before_register_check", array($_POST,$todo_checks,$error));
-    }
 
     // Check if all required fields are filled and valid.
-    if ($todo_checks['username_empty'] &&
-        (!isset($_POST["username"]) || empty($_POST['username']))) {
+    if (!isset($_POST["username"]) || empty($_POST['username'])) {
         $error = $PHORUM["DATA"]["LANG"]["ErrUsername"];
-    } elseif ($todo_checks['email_valid'] && !isset($_POST["email"]) ||
-              !phorum_api_mail_check_address($_POST["email"])) {
+    } elseif (!isset($_POST["email"]) || !phorum_valid_email($_POST["email"])) {
         $error = $PHORUM["DATA"]["LANG"]["ErrEmail"];
-    } elseif ($todo_checks['password'] &&
-             (empty($_POST["password"]) || $_POST["password"] != $_POST["password2"])) {
+    } elseif (empty($_POST["password"]) || $_POST["password"] != $_POST["password2"]) {
         $error = $PHORUM["DATA"]["LANG"]["ErrPassword"];
     }
     // Check if the username and email address don't already exist.
-    elseif($todo_checks['username_unique'] &&
-           phorum_api_user_search("username", $_POST["username"])) {
+    elseif(phorum_api_user_search("username", $_POST["username"])) {
         $error = $PHORUM["DATA"]["LANG"]["ErrRegisterdName"];
-    } elseif ($todo_checks['email_unique'] &&
-              phorum_api_user_search("email", $_POST["email"])){
+    } elseif (phorum_api_user_search("email", $_POST["email"])){
         $error = $PHORUM["DATA"]["LANG"]["ErrRegisterdEmail"];
     }
 
     // Check banlists.
-    if ($todo_checks['banlists'] && empty($error)) {
-        $error = phorum_api_ban_check_multi(array(
+    if (empty($error)) {
+        $error = phorum_check_bans(array(
             array($_POST["username"], PHORUM_BAD_NAMES),
             array($_POST["email"],    PHORUM_BAD_EMAILS),
             array(NULL,               PHORUM_BAD_IPS),
@@ -216,17 +127,16 @@ if (count($_POST)) {
     }
 
     // Create user if no errors have been encountered.
-    if (empty($error))
-    {
+    if (empty($error)) {
+
         // Setup the default userdata to store.
         $userdata = array(
             'username'   => NULL,
             'password'   => NULL,
             'email'      => NULL,
-            'real_name'  => NULL,
         );
         // Add custom profile fields as acceptable fields.
-        foreach ($PHORUM["CUSTOM_FIELDS"][PHORUM_CUSTOM_FIELD_USER] as $id => $field) {
+        foreach ($PHORUM["PROFILE_FIELDS"] as $id => $field) {
             if ($id === 'num_fields' || !empty($field['deleted'])) continue;
             $userdata[$field["name"]] = NULL;
         }
@@ -237,7 +147,7 @@ if (count($_POST)) {
            }
         }
         // Remove unused custom profile fields.
-        foreach ($PHORUM["CUSTOM_FIELDS"][PHORUM_CUSTOM_FIELD_USER] as $id => $field) {
+        foreach ($PHORUM["PROFILE_FIELDS"] as $id => $field) {
             if ($id === 'num_fields' || !empty($field['deleted'])) continue;
             if (is_null($userdata[$field["name"]])) {
                 unset($userdata[$field["name"]]);
@@ -312,7 +222,7 @@ if (count($_POST)) {
          *     </hookcode>
          */
         if (isset($PHORUM["hooks"]["before_register"]))
-            $userdata = phorum_api_hook("before_register", $userdata);
+            $userdata = phorum_hook("before_register", $userdata);
 
         // Set $error, in case the before_register hook did set an error.
         if (isset($userdata['error'])) {
@@ -325,8 +235,6 @@ if (count($_POST)) {
             // Add the user to the database.
             $userdata["user_id"] = NULL;
             $user_id = phorum_api_user_save($userdata);
-            // fetch the fresh user
-            $user_new = phorum_api_user_get($user_id);
 
             if ($user_id)
             {
@@ -343,87 +251,19 @@ if (count($_POST)) {
                 // Send a message to the new user in case email verification is required.
                 if ($PHORUM["registration_control"] == PHORUM_REGISTER_VERIFY_BOTH ||
                     $PHORUM["registration_control"] == PHORUM_REGISTER_VERIFY_EMAIL) {
-                    $verify_url = phorum_api_url(PHORUM_REGISTER_URL, "approve=".$userdata["password_temp"]."$user_id");
+                    $verify_url = phorum_get_url(PHORUM_REGISTER_URL, "approve=".$userdata["password_temp"]."$user_id");
                     // make the link an anchor tag for AOL users
                     if (preg_match("!aol\.com$!i", $userdata["email"])) {
                         $verify_url = "<a href=\"$verify_url\">$verify_url</a>";
                     }
                     $maildata = array();
                     $maildata["mailsubject"] = $PHORUM["DATA"]["LANG"]["VerifyRegEmailSubject"];
-                    // The mailmessage can be composed in two different ways.
-                    // This was done for backward compatibility for the
-                    // language files. Up to Phorum 5.2, we had
-                    // VerifyRegEmailBody1 and VerifyRegEmailBody2 for
-                    // defining the lost password mail body. In 5.3, we
-                    // switched to a single variable VerifyRegEmailBody.
-                    // Eventually, the variable replacements need to be
-                    // handled by the mail API layer.
-                    if (isset($PHORUM['DATA']['LANG']['VerifyRegEmailBody']))
-                    {
-                        $maildata['mailmessage'] = phorum_api_format_wordwrap(str_replace(
-                            array(
-                                '%title%',
-                                '%username%',
-                                '%display_name%',
-                                '%verify_url%',
-                                '%login_url%'
-                            ),
-                            array(
-                                $PHORUM['title'],
-                                $user_new['username'],
-                                $user_new['display_name'],
-                                $verify_url,
-                                phorum_api_url(PHORUM_LOGIN_URL)
-                            ),
-                            $PHORUM['DATA']['LANG']['VerifyRegEmailBody']
-                        ), 72);
-                    }
-                    else
-                    {
-                        // Hide the deprecated language strings from the
-                        // amin language tool by not using the full syntax
-                        // for those.
-                        $lang = $PHORUM['DATA']['LANG'];
-
-                        $maildata["mailmessage"] =
-                           phorum_api_format_wordwrap(str_replace(
-                            array(
-                                '%title%',
-                                '%username%',
-                                '%display_name%',
-                                '%verify_url%',
-                                '%login_url%'
-                            ),
-                            array(
-                                $PHORUM['title'],
-                                $user_new['username'],
-                                $user_new['display_name'],
-                                $verify_url,
-                                phorum_api_url(PHORUM_LOGIN_URL)
-                            ),$lang['VerifyRegEmailBody1']), 72).
-                           "\n\n$verify_url\n\n".
-                           phorum_api_format_wordwrap(str_replace(
-                            array(
-                                '%title%',
-                                '%username%',
-                                '%display_name%',
-                                '%verify_url%',
-                                '%login_url%'
-                            ),
-                            array(
-                                $PHORUM['title'],
-                                $user_new['username'],
-                                $user_new['display_name'],
-                                $verify_url,
-                                phorum_api_url(PHORUM_LOGIN_URL)
-                            ),$lang['VerifyRegEmailBody2']), 72);
-                    }
-
-                    phorum_api_mail($userdata["email"], $maildata);
+                    $maildata["mailmessage"] = phorum_wordwrap($PHORUM["DATA"]["LANG"]["VerifyRegEmailBody1"], 72)."\n\n$verify_url\n\n".phorum_wordwrap($PHORUM["DATA"]["LANG"]["VerifyRegEmailBody2"], 72);
+                    phorum_email_user(array($userdata["email"]), $maildata);
                 }
 
                 $PHORUM["DATA"]["BACKMSG"] = $PHORUM["DATA"]["LANG"]["RegBack"];
-                $PHORUM["DATA"]["URL"]["REDIRECT"] = phorum_api_url(PHORUM_LOGIN_URL);
+                $PHORUM["DATA"]["URL"]["REDIRECT"] = phorum_get_url(PHORUM_LOGIN_URL);
 
                 /*
                  * [hook]
@@ -459,9 +299,7 @@ if (count($_POST)) {
                  *         // register
                  *         $PHORUM["mod_foo"]["user_registrations"][$userdata["user_id"]] = $_SERVER["REMOTE_ADDR"];
                  *
-                 *         $PHORUM['DB']->update_settings(array(
-                 *             "mod_foo" => $PHORUM["mod_foo"]
-                 *         ));
+                 *         phorum_db_update_settings(array("mod_foo" => $PHORUM["mod_foo"]));
                  *
                  *         return $data;
                  *     }
@@ -469,10 +307,10 @@ if (count($_POST)) {
                  */
                 if (isset($PHORUM["hooks"]["after_register"])) {
                     $userdata["user_id"] = $user_id;
-                    phorum_api_hook("after_register",$userdata);
+                    phorum_hook("after_register",$userdata);
                 }
 
-                phorum_api_output("message");
+                phorum_output("message");
                 return;
 
             // Adding the user to the database failed.
@@ -486,7 +324,7 @@ if (count($_POST)) {
     // data to redisplay the registration form, including an error.
     if (!empty($error)) {
         foreach($_POST as $key => $val){
-            $PHORUM["DATA"]["REGISTER"][$key] = phorum_api_format_htmlspecialchars($val);
+            $PHORUM["DATA"]["REGISTER"][$key] = htmlspecialchars($val, ENT_QUOTES, $PHORUM["DATA"]["HCHARSET"]);
         }
         $PHORUM["DATA"]["ERROR"] = $error;
     }
@@ -499,7 +337,7 @@ if (count($_POST)) {
     $PHORUM["DATA"]["ERROR"] = "";
 
     // Initialize custom profile fields.
-    foreach($PHORUM["CUSTOM_FIELDS"][PHORUM_CUSTOM_FIELD_USER] as $id => $field) {
+    foreach($PHORUM["PROFILE_FIELDS"] as $id => $field) {
         if ($id === 'num_fields' || !empty($field['deleted'])) continue;
         $PHORUM["DATA"]["REGISTER"][$field["name"]] = "";
     }
@@ -518,11 +356,11 @@ $PHORUM['DATA']['HTML_DESCRIPTION'] = '';
 $PHORUM['DATA']['DESCRIPTION'] = '';
 
 # Setup static template data.
-$PHORUM["DATA"]["URL"]["ACTION"] = phorum_api_url( PHORUM_REGISTER_ACTION_URL );
+$PHORUM["DATA"]["URL"]["ACTION"] = phorum_get_url( PHORUM_REGISTER_ACTION_URL );
 $PHORUM["DATA"]["REGISTER"]["forum_id"] = $PHORUM["forum_id"];
 $PHORUM["DATA"]["REGISTER"]["block_title"] = $PHORUM["DATA"]["LANG"]["Register"];
 
 // Display the registration page.
-phorum_api_output("register");
+phorum_output("register");
 
 ?>

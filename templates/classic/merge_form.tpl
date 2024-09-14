@@ -19,21 +19,9 @@
       <div class="PhorumStdBlockHeader PhorumNarrowBlock" style="text-align: left;"><span class="PhorumHeadingLeft">{LANG->MergeThread}</span></div>
       <div class="PhorumStdBlock PhorumNarrowBlock" style="text-align: left;">
         <div class="PhorumFloatingText">
-
             <p>{LANG->MergeThreadAction1}</p>
-
-            <p>
-              {LANG->Thread} 1: <strong>{FORM->merge_subject1}</strong><br />
-              {LANG->Thread} 2: <strong>{FORM->thread_subject}</strong>
-            </p>
-
-            <p>
-              <label>
-                <input type="checkbox" name="update_subjects">
-                {LANG->MergeThreadUpdateSubjects}
-              </label>
-            </p>
-
+            {LANG->Thread} 1: <strong>{FORM->merge_subject1}</strong><br />
+            {LANG->Thread} 2: <strong>{FORM->thread_subject}</strong><br /><br />
             <p>{LANG->MergeThreadAction2}</p>
           <input type="submit" class="PhorumSubmit" name="move" value="{LANG->MergeThread}" />
         </div>
@@ -46,9 +34,6 @@
         {POST_VARS}
         <input type="hidden" name="thread" value="{FORM->thread_id}" />
         <input type="hidden" name="mod_step" value="{FORM->mod_step}" />
-        {IF FORM->merge_none}
-          <input type="submit" name="cancel" value="{LANG->BacktoForum}" />
-        {/IF}
         <input type="submit" class="PhorumSubmit" name="move" value="{LANG->MergeThreadCancel}" />
       </form>
     </div>

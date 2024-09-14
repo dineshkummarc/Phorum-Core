@@ -1,12 +1,19 @@
 Changelog:
 ----------
 
-2010-10-09 v2.0.10
+2015-08-28 v2.0.12
 
-   - Improved the color picker code to make the placement of the picker
-     work correctly in complex layouts.
+   - Stripping message body (optional stripping HTML and BBCode <tags>,
+     replacing bad words) using corresponding core function when quoting
+     a message.
 
-   - Added left/right alignment tags.
+2010-11-06 v2.0.11
+
+   - added option to add the nofollow attribute only to external URLs
+
+2010-02-12 v2.0.10
+
+   - added left/right alignment tags
 
 2008-10-06 v2.0.9
 

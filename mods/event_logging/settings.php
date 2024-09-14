@@ -4,16 +4,14 @@
 // Direct access to this file is not allowed.
 if (! defined("PHORUM_ADMIN")) return;
 
-require_once PHORUM_PATH . '/mods/event_logging/db.php';
-
 // Load the constants and defaults that we use.
-require_once PHORUM_PATH . '/mods/event_logging/constants.php';
-require_once PHORUM_PATH . '/mods/event_logging/defaults.php';
+require_once("./mods/event_logging/constants.php");
+require_once("./mods/event_logging/defaults.php");
 
 print '<h1>Phorum Event Logging</h1>';
 
-// This admin interface contains multiple screens.
-// Determine which one we have to load.
+// This admin interface contains multiple screens. Determine which one
+// we have to load.
 $action = "settings";
 if (isset($_REQUEST["el_action"])) {
     $action = basename($_REQUEST["el_action"]);
@@ -34,7 +32,6 @@ if (!empty($PHORUM['mods']['event_logging'])) {
     $menu["filter"]    = "Filter logged events";
 }
 
-
 foreach ($menu as $act => $itm) {
     if ($act == $action) {
         print "<span style=\"margin-right: 5px; padding: 3px 10px\" class=\"input-form-td-break\">$itm</span>";
@@ -54,7 +51,7 @@ print "</div>";
 // we follow a strict naming scheme here.
 $settings_file = "./mods/event_logging/settings/{$action}.php";
 if (file_exists($settings_file)) {
-    include $settings_file;
+    include($settings_file);
 } else {
     trigger_error("Illegal settings action requested.", E_USER_ERROR);
 }

@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,16 +15,14 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_ADMIN")) return;
+    if(!defined("PHORUM_ADMIN")) return;
 
-$PHORUM['DB']->update_settings(array("status" => $_POST["status"]));
+    phorum_db_update_settings( array("status"=>$_POST["status"]) );
 
-$redir_url = phorum_admin_build_url(NULL, TRUE);
-phorum_api_redirect($redir_url);
-
-exit();
+    $redir_url = phorum_admin_build_url('', TRUE);
+    phorum_redirect_by_url($redir_url);
+    exit();
 
 ?>

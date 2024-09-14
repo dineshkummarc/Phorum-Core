@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,14 +15,11 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_ADMIN")) return;
+if ( !defined( "PHORUM_ADMIN" ) ) return;
 
-require_once PHORUM_PATH.'/include/api/custom_field.php';
-
-$error = "";
+$error = '';
 
 if ( count( $_POST ) )
 {
@@ -44,7 +42,7 @@ if ( count( $_POST ) )
                 if ( empty( $value ) ) {
                     $_POST[$field] = dirname( $_SERVER["HTTP_REFERER"] );
                 } elseif ( !preg_match( "/^(http|https):\/\/(([a-z0-9][a-z0-9_-]*)(\.[a-z0-9][a-z0-9_-]*)+)(:(\d+))?/i", $value ) && !preg_match( "/^(http|https):\/\/[a-z0-9][a-z0-9_-]*(:\d+)?/i", $value ) ) {
-                    $error = "The provided HTTP Path is not a valid URL.";
+                    $error .= 'The provided HTTP Path is not a valid URL. ';
                 }
 
                 break;
@@ -69,7 +67,7 @@ if ( count( $_POST ) )
                 if ( empty( $value ) ) {
                     $_POST[$field] = "/";
                 } elseif ( $value[0] != "/" ) {
-                    $error = "Session Path must start with a /";
+                    $error .= 'Session Path must start with a /. ';
                 }
 
                 break;
@@ -77,7 +75,7 @@ if ( count( $_POST ) )
             case "session_domain":
 
                 if ( !empty( $value ) && !stristr( $_POST["http_path"], $value ) ) {
-                    $error = "Session Domain must be part of the domain in HTTP Path or empty.";
+                    $error .= 'Session Domain must be part of the domain in HTTP Path or empty. ';
                 }
 
                 break;
@@ -85,7 +83,7 @@ if ( count( $_POST ) )
             case "system_email_from_address":
 
                 if ( empty( $value ) ) {
-                    $error = "You must supply an email address for system emails to use as a from address.";
+                    $error .= 'You must supply an email address for system emails to use as a from address. ';
                 }
 
                 break;
@@ -112,7 +110,7 @@ if ( count( $_POST ) )
 
                 $private_key = trim($value);
                 if (strlen($private_key) < 30) {
-                    $error = "Use at least 30 characters for the secret private key.";
+                    $error .= 'Use at least 30 characters for the secret private key. ';
                 }
                 $_POST[$field] = $private_key;
                 break;
@@ -124,21 +122,18 @@ if ( count( $_POST ) )
                 }
                 break;
         }
-
-        if ( $error ) break;
     }
 
     if ( empty( $error ) ) {
-        unset( $_POST["module"] );
-        unset( $_POST["phorum_admin_token"] );
+        unset($_POST["module"] );
+        unset($_POST["phorum_admin_token"]);
 
-
-        if ( $PHORUM['DB']->update_settings( $_POST ) ) {
+        if ( phorum_db_update_settings( $_POST ) ) {
             $redir = phorum_admin_build_url(array('module=settings','message=success'), TRUE);
             if ($need_display_name_updates) {
                 $redir = phorum_admin_build_url(array('module=update_display_names'), TRUE);
             }
-            phorum_api_redirect($redir);
+            phorum_redirect_by_url($redir);
             exit();
         } else {
             $error = "Database error while updating settings.";
@@ -157,7 +152,7 @@ for( $x = -23;$x <= 23;$x++ ) {
     $tz_range[$x] = $x;
 }
 
-require_once './include/admin/PhorumInputForm.php';
+include_once "./include/admin/PhorumInputForm.php";
 
 $frm = new PhorumInputForm ( "", "post" );
 
@@ -188,44 +183,41 @@ $frm->addhelp($row, "DNS Lookups",
 $row=$frm->addrow( "Hide inaccessible Forums on the Index Page", $frm->select_tag( "hide_forums", array( "No", "Yes" ), $PHORUM["hide_forums"] ) );
 $frm->addhelp($row, "Hide inaccessible Forums on the Index Page", "By setting this to Yes, forums that users are not allowed to read will be hidden from them in the forums list." );
 
-$row=$frm->addrow( "Show New Counts for Forums on the Index Page", $frm->select_tag( "show_new_on_index", array( PHORUM_NEWFLAGS_NOCOUNT => "No", PHORUM_NEWFLAGS_COUNT => "Yes", PHORUM_NEWFLAGS_CHECK => "No count, just indicator" ), $PHORUM["show_new_on_index"] ) );
-$frm->addhelp($row, "Show New Counts for Forums on the Index Page", "This feature will show registered users how many new messages and threads there are in each forum on the forum index page.  If you have a large number of posts, a large number of forums, a large number of users or some combination of the three, this setting could cause some performance issues.  If you see performance issues, try setting it to \"No count, just indicator\" or \"No\"" );
+$row=$frm->addrow( "Show New Counts for Forums on the Index Page", $frm->select_tag( "show_new_on_index", array( "No", "Yes", "No count, just indicator" ), $PHORUM["show_new_on_index"] ) );
+$frm->addhelp($row, "Show New Counts for Forums on the Index Page", "This feature will show registered users how many new messages and threads there are in each forum on the forum list page.  If you have a large number of posts, a large number of forums, a large number of users or some combination of the three, this setting could cause some performance issues.  If you see performance issues, try setting it \"No count, indicator only\" or \"No\"" );
 
-$row=$frm->addrow( "How to Display Forums and Folders on the Index Page", $frm->select_tag( "index_style", array( PHORUM_INDEX_DIRECTORY => 'Directory Structure', PHORUM_INDEX_FLAT => 'Flat Structure' ), $PHORUM["index_style"] ) );
+$row=$frm->addrow( "How to Display Forums and Folders on the Index Page", $frm->select_tag( "use_new_folder_style", array( "Directory Structure", "Flat Structure" ), $PHORUM["use_new_folder_style"] ) );
 $frm->addhelp($row, "How to Display Forums and Folders on the Index Page",
     "Forum has multiple displaying styles available for the index page:
      <ul>
-     <li><b>Directory Structure:</b><br/>
-         <br/>
+     <li><b>Directory Structure:</b><br />
+         <br />
          <em>This style resembles the way in which you normally would browse a
-         filesystem directory structure, hence the name.</em><br/>
-         <br/>
+         filesystem directory structure, hence the name.</em><br />
+         <br />
          When using this style, the index page will show a list of folders
          and a list of forums that are available in the folder for which the
          index page is shown. The user can either go to a forum or traverse
-         the folder tree by going to one of the deeper folders.<br/><br/></li>
-     <li><b>Flat Structure</b><br/>
-         <br/>
+         the folder tree by going to one of the deeper folders.<br /><br /></li>
+     <li><b>Flat Structure</b><br />
+         <br />
          <em>This style will present the user a flat list of category sections
          with forums (and possibly folders) in them. This is the style
-         that most forums use nowadays.</em><br/>
-         <br/>
+         that most forums use nowadays.</em><br />
+         <br />
          When using this style, the root index page will show category
          sections with forums and folders in them. Each section is a folder
          that is directly below the root. The folders and forums that are
-         in those folders are shown in the corresponding sections.<br/>
+         in those folders are shown in the corresponding sections.<br />
          Forums that are placed directly in the root folder, will be
-         shown in a generic \"Forums\" section.<br/>
-         <br/>
+         shown in a generic \"Forums\" section.<br />
+         <br />
          When visiting a subfolder, then the folders and forums inside that
          subfolder are shown. For a subfolder, No sections are displayed.
          This means that browsing subfolders in the flat structure works
          a bit like browsing them in the directory structure.</li>
      </ul>"
 );
-
-$row=$frm->addrow("Go To Forum if only One Forum is Visible on the Index", $frm->select_tag("jump_on_single_forum", array( "No", "Yes" ), $PHORUM['jump_on_single_forum'] ) );
-$frm->addhelp($row, "Go To Forum if only One Forum is Visible on the Index", "By setting this to Yes, Phorum will automatically jump to a forum if that is the only forum visible on the index page. This can be useful in case you are running a forum site with only one forum (or where visitors see only one forum due to permission settings), so visitors do not have to do an additional click to get from the index to the forum.");
 
 $row=$frm->addrow( "Enable Moderator Notifications", $frm->select_tag( "enable_moderator_notifications", array( "No", "Yes" ), $PHORUM["enable_moderator_notifications"] ) );
 $frm->addhelp($row, "Enable Moderator Notifications", "By setting this to Yes, Phorum will display notice to the various kinds of moderators when they have a new item that requires their attention. For example, message moderators will see a notice whenever there is an unapproved message." );
@@ -243,16 +235,18 @@ $row=$frm->addrow( "After posting go to", $frm->select_tag( "redirect_after_post
 $row=$frm->addrow( "After submitting a search query", $frm->select_tag( "skip_intermediate_search_page", array( 0=>"show an intermediate page (\"search is running\")", 1=>"directly go to the search results" ), $PHORUM["skip_intermediate_search_page"] ) );
 $frm->addhelp($row, "After search action", "On large forums or slow servers, searching for messages might take a little while. To prevent users from submitting the same search query over and over again (in case they think the search didn't work, because they didn't get their results fast enough), you can show an intermediate page, telling the user that the search is running. If your system can deliver search results quickly enough, then you can skip the intermediate page and go directly to the search results page.");
 
-$row=$frm->addrow( "Database error handling", $frm->select_tag( "error_logging", array( "screen"=>"Errors will be shown on the screen", "file"=>"Errors will go to a logfile (".$PHORUM['CACHECONFIG']['directory']."/phorum-sql-errors.log)", "mail"=> "Errors will be emailed to the system email address"), $PHORUM["error_logging"] ) );
+$row=$frm->addrow( "How to strip a quote on the posting form", $frm->select_tag( "strip_quote_posting_form", array( 0=>"Strip HTML and BBCode <tags>", 1=>"Strip HTML <tags>" ), $PHORUM["strip_quote_posting_form"] ) );
+
+$row=$frm->addrow( "Database error handling", $frm->select_tag( "error_logging", array( "screen"=>"Errors will be shown on the screen", "file"=>"Errors will go to a logfile (".$PHORUM['cache']."/phorum-sql-errors.log)", "mail"=> "Errors will be emailed to the system email address"), $PHORUM["error_logging"] ) );
 
 $row=$frm->addrow( "Secret private key for signing data", $frm->text_box("private_key", $PHORUM["private_key"], 50) );
-$frm->addhelp($row, "Secret key for signing data", "On several occasions, data is transferred from the Phorum system to the user's system and back again. To be sure that there was no tampering with this data on the way, it is signed by Phorum using this secret key. If you do not understand what this is for, then it is safe to simply keep the pre-configured value.<br/><br/><b>Warning:</b> if you change this key, users who are active right now might experience problems.<br/><br/>This key is also used by the caching layers to make sure that separate caches are used for multiple instances of Phorum, running on the same system.");
+$frm->addhelp($row, "Secret key for signing data", "On several occasions, data is transferred from the Phorum system to the user's system and back again. To be sure that there was no tampering with this data on the way, it is signed by Phorum using this secret key. If you do not understand what this is for, then it is safe to simply keep the pre-configured value.<br /><br /><b>Warning:</b> if you change this key, users who are active right now might experience problems.");
 
 $row=$frm->addrow( "Allow Linking To Uploaded Files", $frm->select_tag( "file_offsite", array( PHORUM_OFFSITE_FORUMONLY => "Only from the forum", PHORUM_OFFSITE_THISSITE => "From this web site", PHORUM_OFFSITE_ANYSITE => "From any web site" ), $PHORUM["file_offsite"] ) );
-$frm->addhelp($row, "Allow Off Site Links", "You may not want to allow other web sites to link to files that users have uploaded to your forums. If not, then set this option to \"Only from the forum\". If you want to use links on other parts of your web site, then use \"From this web site\". If you want to allow other websites to link to your forum file uploads, then select \"From any web site\".<br/><br/>If your needs are more specific than this (e.g. if you want to allow access from a specific group of web sites), you will need to use your web server's security features to accomplish this. Apache users can reference <i>Prevent \"Image Theft\"</i> at http://httpd.apache.org/docs/env.html#examples." );
+$frm->addhelp($row, "Allow Off Site Links", "You may not want to allow other web sites to link to files that users have uploaded to your forums. If not, then set this option to \"Only from the forum\". If you want to use links on other parts of your web site, then use \"From this web site\". If you want to allow other websites to link to your forum file uploads, then select \"From any web site\".<br /><br />If your needs are more specific than this (e.g. if you want to allow access from a specific group of web sites), you will need to use your web server's security features to accomplish this. Apache users can reference <i>Prevent \"Image Theft\"</i> at http://httpd.apache.org/docs/env.html#examples." );
 
 $row=$frm->addrow( "Put file name in pathinfo for file download URLs", $frm->select_tag("file_url_uses_pathinfo", array( "No", "Yes"), $PHORUM["file_url_uses_pathinfo"]) );
-$frm->addhelp($row, "Use pathinfo for file URLs", "All Phorum file downloads (for user files and forum message attachments) run through the file.php script. As a result, users who right-click a file URL and choose \"Save link as ..\" will end up in their browser with file.php as the default file name. With this option enabled however, Phorum will try to give the browser a real file name instead. This is done by putting the file name in the URL as pathinfo (which makes the download link look like /file.php/downloadfile.ext?1,2,file=3).<br/><br/>The webserver needs to support the use of pathinfo for this feature to work. So if you are unable to download files after enabling this option, your webserver probably lacks pathinfo support and you cannot use this feature.");
+$frm->addhelp($row, "Use pathinfo for file URLs", "All Phorum file downloads (for user files and forum message attachments) run through the file.php script. As a result, users who right-click a file URL and choose \"Save link as ..\" will end up in their browser with file.php as the default file name. With this option enabled however, Phorum will try to give the browser a real file name instead. This is done by putting the file name in the URL as pathinfo (which makes the download link look like /file.php/downloadfile.ext?1,2,file=3).<br /><br />The webserver needs to support the use of pathinfo for this feature to work. So if you are unable to download files after enabling this option, your webserver probably lacks pathinfo support and you cannot use this feature.");
 
 $row=$frm->addrow( "Use the PHP fileinfo extension for mime-type detection", $frm->select_tag("file_fileinfo_ext", array( "No", "Yes"), (isset($PHORUM["file_fileinfo_ext"]))?$PHORUM["file_fileinfo_ext"]:1 ) );
 $frm->addhelp($row, "Use the PHP fileinfo extension for mime-type detection", "Fileinfo is a php-extension which was added by default in PHP-5.3.0 and is a <a href=\"http://pecl.php.net/package/Fileinfo\">PECL extension</a> for manual install in previous php-versions. If this setting is enabled, the fileinfo extension will be used to return the mime-type of uploaded files to make sure that the mime-type matches the file contents and isn't done purely based on the data on upload or the file extension.");
@@ -268,7 +262,7 @@ $frm->addbreak( "HTML Settings" );
 $row=$frm->addrow( "Phorum HTML Title", $frm->text_box( "html_title", $PHORUM["html_title"], 50 ) );
 
 $row=$frm->addrow( "Phorum Head Tags", $frm->textarea( "head_tags", $PHORUM["head_tags"], 30, 5, "style='width: 100%'" ) );
-$frm->addhelp($row, "Phorum Head Tags", "This option can be used to provide additional HTML code that will be added to the &lt;head&gt; section of the pages. This could for example be used for adding meta keywords:<br/>
+$frm->addhelp($row, "Phorum Head Tags", "This option can be used to provide additional HTML code that will be added to the &lt;head&gt; section of the pages. This could for example be used for adding meta keywords:<br />
 <pre style=\"font-size: x-small\">&lt;meta name=\"KEYWORDS\" content=\"...\"\ /&gt;</pre>");
 
 $row=$frm->addrow( "Show and allow feed links", $frm->select_tag( "use_rss", array( "No", "Yes" ), $PHORUM["use_rss"] ) );
@@ -311,7 +305,7 @@ $frm->addhelp($row, "Time Zone Offset", "If you and/or your users are in a diffe
 $frm->addbreak( "Cookie/Session Settings" );
 
 $row=$frm->addrow( "Use Cookies", $frm->select_tag( "use_cookies", array( "Use no cookies", "Allow cookies", "Require cookies" ), $PHORUM["use_cookies"] ) );
-$frm->addhelp($row, "Use Cookies", "Phorum can track logged in users by using cookies or session information on URLs.<br/><br/><b>Use no cookies</b>: The session information will always be included on the URL.<br/><br/><b>Allow cookies</b>: The session information will be stored in cookies, if the user's browser supports it. Otherwise the information is included on the URL.<br/><br/><b>Require cookies</b>: Session information is only stored in cookies. If the user's browser does not support cookies, the user will not be able to login.");
+$frm->addhelp($row, "Use Cookies", "Phorum can track logged in users by using cookies or session information on URLs.<br /><br /><b>Use no cookies</b>: The session information will always be included on the URL.<br /><br /><b>Allow cookies</b>: The session information will be stored in cookies, if the user's browser supports it. Otherwise the information is included on the URL.<br /><br /><b>Require cookies</b>: Session information is only stored in cookies. If the user's browser does not support cookies, the user will not be able to login.");
 
 $row=$frm->addrow( "Main Session Timeout (days)", $frm->text_box( "session_timeout", $PHORUM["session_timeout"], 10 ) );
 $frm->addhelp($row, "Session Timeout", "When users log in to your Phorum, they are issued a cookie.  You can set this timeout to the number of days that you want the cookie to stay on the users computer.  If you set it to 0, the cookie will only last as long as the user has the browser open." );
@@ -336,18 +330,6 @@ $frm->addhelp($row, "Short Session Timeout", "When tight security is enabled, th
 $frm->addbreak( "User Settings" );
 
 $row=$frm->addrow( "Allow Time Zone Selection", $frm->select_tag( "user_time_zone", array( "No", "Yes" ), $PHORUM["user_time_zone"] ) );
-$frm->addhelp($row, "Allow Time Zone Selection",
-    "If enabled, the user will find an option in his control center to
-     select the time zone to use.");
-
-$row=$frm->addrow( "Allow Language Selection", $frm->select_tag( "user_language", array( "No", "Yes" ), $PHORUM["user_language"] ) );
-$frm->addhelp($row, "Allow Language Selection",
-    "If enabled, the user will find an option in his control center to
-     select the language to use.
-     <br />
-     Note: The user selected language will only be used for forums,
-     which do not have \"Fixed Display-Settings\" enabled in the
-     forum's settings.");
 
 $row=$frm->addrow( "Allow Template Selection", $frm->select_tag( "user_template", array( "No", "Yes" ), $PHORUM["user_template"] ) );
 $frm->addhelp($row, "Allow Template Selection",
@@ -356,7 +338,7 @@ $frm->addhelp($row, "Allow Template Selection",
      <br />
      Note: The user selected template will only be used for forums,
      which do not have \"Fixed Display-Settings\" enabled in the
-     forum's settings.");
+     forum settings.");
 
 $reg_con_arr = array(
 
@@ -377,7 +359,7 @@ $row=$frm->addrow( "Enable Drop-down User List", $frm->select_tag( "enable_dropd
 $frm->addhelp($row, "Enable Drop-down User List", "By setting this to Yes, Phorum will display a drop-down list of users instead of an empty text box on pages where you can select a user. Two examples of such pages are when sending a private message, and when adding users to a group in the group moderation page. This option should be disabled if you have a large number of users, as a list of thousands of users will slow performance dramatically." );
 
 $row = $frm->addrow( "What to use as the display name", $frm->select_tag("display_name_source", array("username" => "User's username", "real_name" => "User's real name"), isset($PHORUM["display_name_source"]) ? $PHORUM["display_name_source"] : "username") );
-$frm->addhelp($row, "What to use as the display name", "You can choose to use either the user's username or the real name (which can be edited by the user from the control center) as the name by which the user is referenced throughout all Phorum pages.<br/><br/>This is not an option that you normally would want to change on a live system that has been running for a while. One reason is that all stored names will have to be updated in the database (e.g. the posting authors), which can take quite a while on a big forum (it <i>will</i> work though). More impor tant is that you might confuse your users by changing the display names.");
+$frm->addhelp($row, "What to use as the display name", "You can choose to use either the user's username or the real name (which can be edited by the user from the control center) as the name by which the user is referenced throughout all Phorum pages.<br /><br />This is not an option that you normally would want to change on a live system that has been running for a while. One reason is that all stored names will have to be updated in the database (e.g. the posting authors), which can take quite a while on a big forum (it <i>will</i> work though). More impor tant is that you might confuse your users by changing the display names.");
 
 $row=$frm->addrow( "Force hiding of email addresses", $frm->select_tag( "hide_email_addr", array( "No", "Yes" ), $PHORUM["hide_email_addr"] ) );
 $frm->addhelp($row, "Force hiding of email addresses", "If set to \"No\", then registered users can choose themselves whether they want their email addresses displayed to other users or not. If set to \"Yes\", then all email addresses will be hidden, including those of anonymous users. Also, the option \"Allow other users to see my email address\" will be removed from the user control center.");
@@ -391,7 +373,7 @@ $upload_arr = array(
     );
 
 $row=$frm->addrow( "File Uploads:", $frm->select_tag( "file_uploads", $upload_arr, $PHORUM["file_uploads"] ) );
-$frm->addhelp($row, "File Uploads", "These settings apply to personal file uploads that user can do in their control center. The users can link to these files by copying and pasting the file URLs. Some modules (like the avatar module) also make use of personal files (for example for storing the images that the user can use as the avatar to show).<br/><br/>These settings do <i>not</i> control uploading of forum message attachments. For changing message attachment settings, you have to edit the settings of the forum for which you want to enable attachments.");
+$frm->addhelp($row, "File Uploads", "These settings apply to personal file uploads that user can do in their control center. The users can link to these files by copying and pasting the file URLs. Some modules (like the avatar module) also make use of personal files (for example for storing the images that the user can use as the avatar to show).<br /><br />These settings do <i>not</i> control uploading of forum message attachments. For changing message attachment settings, you have to edit the settings of the forum for which you want to enable attachments.");
 
 $row=$frm->addrow( "&nbsp;&nbsp;&nbsp;File Types (eg. gif;jpg)", $frm->text_box( "file_types", $PHORUM["file_types"], 30 ) );
 
@@ -400,6 +382,9 @@ $row=$frm->addrow( "&nbsp;&nbsp;&nbsp;Max File Size (KB)", $frm->text_box( "max_
 $row=$frm->addrow( "&nbsp;&nbsp;&nbsp;File Space Quota (KB)", $frm->text_box( "file_space_quota", $PHORUM["file_space_quota"], 30 ) );
 
 $row=$frm->addrow( "Private Messaging (PM):", $frm->select_tag( "enable_pm", array( "Off", "On" ), $PHORUM["enable_pm"] ) );
+
+$row=$frm->addrow( "&nbsp;&nbsp;&nbsp;Check For New PM", $frm->select_tag( "enable_new_pm_count", array( "No", "Yes" ), $PHORUM["enable_new_pm_count"] ) );
+$frm->addhelp($row, "Check For Private Messages", "By setting this to Yes, Phorum will check if a user has new private messages, and display an indicator. On a Phorum with a lot of users and private messages, this may hurt performance. This option has no effect if Private Messaging is disabled." );
 
 $row=$frm->addrow( "&nbsp;&nbsp;&nbsp;Max number of stored messages", $frm->text_box( "max_pm_messagecount", $PHORUM["max_pm_messagecount"], 30 ) );
 $frm->addhelp($row, "Max number of stored messages", "This is the maximum number of private messages that a user may store on the server. The number of private messages is the total of all messages in all PM folders together. Setting this value to zero will allow for unlimited messages.");
@@ -418,6 +403,8 @@ $row=$frm->addrow( "System Emails From Name", $frm->text_box( "system_email_from
 $row=$frm->addrow( "System Emails From Address", $frm->text_box( "system_email_from_address", $PHORUM["system_email_from_address"], 30 ) );
 
 $row=$frm->addrow( "Use BCC in sending mails:", $frm->select_tag( "use_bcc", array( "No", "Yes" ), $PHORUM["use_bcc"] ) );
+
+$row=$frm->addrow( "How to strip quotes in mails", $frm->select_tag( "strip_quote_mail", array( 0=>"Strip HTML and BBCode <tags>", 1=>"Strip HTML <tags>" ), $PHORUM["strip_quote_mail"] ) );
 
 $row=$frm->addrow( "Ignore Admin for moderator-emails:", $frm->select_tag( "email_ignore_admin", array( "No", "Yes" ), $PHORUM["email_ignore_admin"] ) );
 $frm->addhelp($row, "Ignore Admin for moderator-emails", "If you select yes for this option, then the moderator-notifications and report-message emails will not be sent to the admininistrator, only to moderators" );
@@ -459,7 +446,7 @@ $frm->addhelp($row, "Ignore Admin for moderator-emails", "If you select yes for 
  *     }
  *     </hookcode>
  */
-$frm=phorum_api_hook("admin_general", $frm);
+$frm=phorum_hook("admin_general", $frm);
 
 $frm->show();
 

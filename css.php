@@ -18,13 +18,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 define('phorum_page','css');
-require_once './common.php';
+require_once('./common.php');
 
 // Set to FALSE to disable CSS compression.
-define('PHORUM_COMPRESS_CSS', TRUE);
+define('PHORUM_COMPRESS_CSS', FALSE);
 
 // Argument 1 should be the name of the css template to load.
-if (!empty($PHORUM["args"]["1"])){
+if(!empty($PHORUM["args"]["1"])){
     $css = basename((string)$PHORUM["args"]["1"]);
 } else {
     trigger_error("Missing argument", E_USER_ERROR);
@@ -32,7 +32,7 @@ if (!empty($PHORUM["args"]["1"])){
 }
 
 // let it only process css templates
-if (substr($css,0,3) != 'css') {
+if(substr($css,0,3) != 'css') {
     trigger_error("Wrong template", E_USER_ERROR);
     exit(1);
 }
@@ -60,54 +60,54 @@ phorum_build_common_urls();
  * [input]
  *     An array, containing the following fields:
  *     <ul>
- *     <li><b>css</b><br>
+ *     <li><b>css</b><br />
  *         The name of the css file that was requested for the css.php
  *         script. Phorum requests either "css" or "css_print".
  *         The module can use this parameter to decide whether
  *         CSS code has to be registered or not.</li>
- *     <li><b>register</b><br>
+ *     <li><b>register</b><br />
  *         An array of registrations, filled by the modules. Modules
  *         can register their CSS code for inclusion in the base CSS
  *         file by adding a registration to this array. A registration
  *         is an array, containing the following fields:
  *         <ul>
- *         <li><b>module</b><br>
+ *         <li><b>module</b><br />
  *             The name of the module that adds the registration.
  *         </li>
- *         <li><b>where</b><br>
+ *         <li><b>where</b><br />
  *             This field determines whether the CSS data is added
  *             before or after the base CSS code. The value for this field
  *             is either "before" or "after".
  *         </li>
- *         <li><b>source</b><br>
+ *         <li><b>source</b><br />
  *             Specifies the source of the CSS data. This can be one of:
  *             <ul>
- *             <li><b>file(&lt;path to filename&gt;)</b><br>
+ *             <li><b>file(&lt;path to filename&gt;)</b><br />
  *                 For including a static CSS file. The path should be
  *                 absolute or relative to the Phorum install directory,
  *                 e.g. "<literal>file(mods/foobar/baz.css)</literal>".
- *                 Because this file is loaded using a PHP include call,
+ *                 Because this file is loaded using a PHP include() call,
  *                 it is possible to include PHP code in this file. Mind that
  *                 this code is stored interpreted in the cache.</li>
- *             <li><b>template(&lt;template name&gt;)</b><br>
+ *             <li><b>template(&lt;template name&gt;)</b><br />
  *                 For including a Phorum template,
  *                 e.g. "<literal>template(foobar::baz)</literal>"</li>
- *             <li><b>function(&lt;function name&gt;)</b><br>
+ *             <li><b>function(&lt;function name&gt;)</b><br />
  *                 For calling a function to retrieve the CSS code,
  *                 e.g. "<literal>function(mod_foobar_get_css)</literal>"</li>
  *             </ul>
  *         </li>
- *         <li><b>cache_key</b><br>
+ *         <li><b>cache_key</b><br />
  *             To make caching of the generated CSS data
  *             possible, the module should provide the css.php script
  *             a cache key using this field. This cache key needs to
- *             change if the module will provide different CSS data.<br>
- *             <br>
+ *             change if the module will provide different CSS data.<br />
+ *             <br />
  *             Note: in case "file" or "template" is used as the source,
  *             you are allowed to omit the cache_key. In that case, the
  *             modification time of the involved file(s) will be used as
- *             the cache key.<br>
- *             <br>
+ *             the cache key.<br />
+ *             <br />
  *             It is okay for the module to provide multiple cache keys
  *             for different situations (e.g. if the CSS code depends on
  *             a group or so). Keep in mind though that for each different
@@ -132,7 +132,7 @@ phorum_build_common_urls();
  */
 $module_registrations = array();
 if (isset($PHORUM['hooks']['css_register'])) {
-    $res = phorum_api_hook('css_register', array(
+    $res = phorum_hook('css_register', array(
         'css'      => $css,
         'register' => $module_registrations)
     );
@@ -143,13 +143,13 @@ if (isset($PHORUM['hooks']['css_register'])) {
 // the cached template file if required. This is the easiest
 // way to make this work correctly for nested template files.
 ob_start();
-include phorum_api_template($css);
+include(phorum_get_template($css));
 $base = ob_get_contents();
 ob_end_clean();
 
 // Find the modification time for the css file and the settings file.
-list ($css, $css_php, $css_tpl) = phorum_api_template_resolve($css);
-list ($d, $settings_php, $settings_tpl) = phorum_api_template_resolve('settings');
+list ($css, $css_php, $css_tpl) = phorum_get_template_file($css);
+list ($d, $settings_php, $settings_tpl) = phorum_get_template_file('settings');
 $css_t = @filemtime($css_php);
 $settings_t = @filemtime($settings_php);
 
@@ -211,14 +211,14 @@ foreach ($module_registrations as $id => $r)
                 // the cached template file if required. This is the easiest
                 // way to make this work correctly for nested template files.
                 ob_start();
-                include phorum_api_template($m[2]);
+                include(phorum_get_template($m[2]));
                 $module_registrations[$id]['content'] = ob_get_contents();
                 ob_end_clean();
 
                 // We use the mtime of the compiled template as the cache
                 // key if no specific cache key was set.
                 if (!isset($r['cache_key'])) {
-                    list ($m[2], $php, $tpl) = phorum_api_template_resolve($m[2]);
+                    list ($m[2], $php, $tpl) = phorum_get_template_file($m[2]);
                     $mtime = @filemtime($php);
                     $r['cache_key'] = $mtime;
                     $module_registrations[$id]['cache_key'] = $mtime;
@@ -250,16 +250,16 @@ foreach ($module_registrations as $id => $r)
     $cache_key .= '|' . $r['module'] . ':' . $r['cache_key'];
 }
 
+$cache_key = md5($cache_key);
+
 $content = NULL;
 $cache_time = 0;
 
-$cache_key .= '|' . (PHORUM_COMPRESS_CSS ? 'compress' : 'nocompress');
-$cache_key = md5($cache_key);
-
-if (!empty($PHORUM['cache_css'])) {
-    $cache_data = phorum_api_cache_get('css', $cache_key);
+if (!empty($PHORUM['cache_css']))
+{
+    $cache_data = phorum_cache_get('css', $cache_key);
     if ($cache_data !== null) {
-        list ($cache_time, $content) = $cache_data;
+        list($cache_time,$content) = $cache_data;
     }
 }
 
@@ -277,7 +277,7 @@ if ($content === null)
         {
             case "file":
                 ob_start();
-                include $r['source'];
+                include($r['source']);
                 $add .= ob_get_contents();
                 ob_end_clean();
                 break;
@@ -338,12 +338,12 @@ if ($content === null)
      *     The filtered CSS code.
      */
     if (isset($PHORUM['hooks']['css_filter'])) {
-        $content = phorum_api_hook('css_filter', $content);
+        $content = phorum_hook('css_filter', $content);
     }
 
     if (!empty($PHORUM['cache_css'])) {
         $cache_time = time();
-        phorum_api_cache_put('css',$cache_key,array($cache_time,$content),86400);
+        phorum_cache_put('css',$cache_key,array($cache_time,$content),86400);
     }
 }
 
@@ -352,12 +352,21 @@ $last_modified = $cache_time;
 
 // Check if a If-Modified-Since header is in the request. If yes, then
 // check if the CSS code has changed, based on the filemtime() data from
-// above. If nothing changed, then we return a 304 header, to tell the
+// above. If nothing changed, then we can return a 304 header, to tell the
 // browser to use the cached data.
-phorum_api_output_last_modify_time($last_modified);
+if (!empty($_SERVER['HTTP_IF_MODIFIED_SINCE'])) {
+    $header = preg_replace('/;.*$/', '', $_SERVER["HTTP_IF_MODIFIED_SINCE"]);
+    $if_modified_since = strtotime($header);
+
+    if ($if_modified_since == $last_modified) {
+        header("HTTP/1.0 304 Not Modified");
+        exit(0);
+    }
+}
 
 // Send the CSS to the browser.
 header("Content-Type: text/css");
+header("Last-Modified: " . gmdate('D, d M Y H:i:s \G\M\T', $last_modified));
 
 echo $content;
 

@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,18 +15,19 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM")) return;
-
-require_once PHORUM_PATH.'/include/api/format/messages.php';
+if(!defined("PHORUM")) return;
 
 $previewmessage = $message;
 
 // Add the message author's signature to the message body.
 if (isset($message["user_id"]) && !empty($message["user_id"])) {
     $user = phorum_api_user_get($message["user_id"]);
+    if (isset($PHORUM["hooks"]["read_user_info"])) {
+        $user_info = phorum_hook("read_user_info", array($user["user_id"] => $user));
+        $user = array_shift($user_info);
+    }
     if ($user && $message["show_signature"]) {
         $previewmessage["body"] .= "\n\n" . $user["signature"];
     }
@@ -40,11 +42,12 @@ if ($attach_count)
     // Create the URL and formatted size for attachment files.
     foreach ($previewmessage["attachments"] as $nr => $data) {
         $previewmessage["attachments"][$nr]["url"] =
-            phorum_api_url(PHORUM_FILE_URL, "file={$data['file_id']}", "filename=".urlencode($data['name']));
+            phorum_get_url(PHORUM_FILE_URL, "file={$data['file_id']}", "filename=".urlencode($data['name']));
         $previewmessage["attachments"][$nr]["download_url"] =
-            phorum_api_url(PHORUM_FILE_URL, "file={$data['file_id']}", "filename=".urlencode($data['name']), "download=1");
+            phorum_get_url(PHORUM_FILE_URL, "file={$data['file_id']}", "filename=".urlencode($data['name']), "download=1");
         $previewmessage["attachments"][$nr]["size"] =
-            phorum_api_format_filesize($data["size"]);
+            phorum_filesize($data["size"]);
+        $previewmessage["attachments"][$nr]["name"] = htmlspecialchars($data['name'], ENT_QUOTES, $PHORUM["DATA"]["HCHARSET"]);
     }
 }
 
@@ -59,10 +62,11 @@ if (($mode == "post" || $mode == "reply") &&
 }
 
 // Format the message using the default formatting.
-$formatted = phorum_api_format_messages(array(
-    $previewmessage['message_id'] => $previewmessage
-));
-$previewmessage = $formatted[$previewmessage['message_id']];
+include_once("./include/format_functions.php");
+$previewmessages = phorum_format_messages(array(
+    $previewmessage['message_id'] => $previewmessage)
+);
+$previewmessage = $previewmessages[$previewmessage['message_id']];
 
 // Recount the number of attachments. Formatting mods might have changed
 // the number of attachments we have to display using default formatting.
@@ -101,7 +105,7 @@ if ($mode != "edit") {
 
 // Format datestamp.
 $previewmessage["raw_datestamp"] = $previewmessage["datestamp"];
-$previewmessage["datestamp"] = phorum_api_format_date($PHORUM["short_date_time"], $previewmessage["datestamp"]);
+$previewmessage["datestamp"] = phorum_date($PHORUM["short_date_time"], $previewmessage["datestamp"]);
 
 $PHORUM["DATA"]["PREVIEW"] = $previewmessage;
 

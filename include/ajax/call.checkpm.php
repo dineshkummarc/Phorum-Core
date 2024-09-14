@@ -1,6 +1,6 @@
 <?php
 /*
-CALL
+FUNCTION
 
     checkpm - check for availability of new unread private messages.
 
@@ -15,10 +15,10 @@ ARGUMENTS
 
 EXAMPLE JSON REQUESTS
 
-    { call    : "checkpm" }
+    { "call": "checkpm" }
 
-    { call    : "checkpm",
-      user_id : 1234 }
+    { "call": "checkpm",
+      "user_id": 1234 }
 
 RETURN VALUE
 
@@ -46,7 +46,7 @@ if ($user_id == 0 && isset($PHORUM["user"]["user_id"])) {
 
 $hasnew = $user_id == 0
         ? 0
-        : $PHORUM['DB']->pm_checknew($user_id) ? 1 : 0;
+        : phorum_db_pm_checknew($user_id) ? 1 : 0;
 
 phorum_ajax_return($hasnew);
 ?>

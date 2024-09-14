@@ -27,6 +27,8 @@
  * @license    Phorum License, http://www.phorum.org/license.txt
  */
 
+if (!defined('PHORUM')) return;
+
 // {{{ Function: phorum_api_http_get()
 /**
  * This function can be used to retrieve data from a URL using
@@ -51,16 +53,14 @@
  *
  * @return string $data
  *     The data that was loaded from the URL or NULL if an error occurred.
- *     The function {@link phorum_api_error_message()} can be used to retrieve
- *     information about the error that occurred.
+ *     The function {@link phorum_api_strerror()} can be used to retrieve
+ *     information about the error which occurred.
  */
 function phorum_api_http_get($url, $method = NULL)
 {
-    global $PHORUM;
-
     // Reset error storage.
-    $PHORUM['API']['errno'] = NULL;
-    $PHORUM['API']['error'] = NULL;
+    $GLOBALS['PHORUM']['API']['errno'] = NULL;
+    $GLOBALS['PHORUM']['API']['error'] = NULL;
 
     // For keeping track of errors in this function.
     $error = NULL;
@@ -173,7 +173,7 @@ function phorum_api_http_get($url, $method = NULL)
     // Return fatal errors. For non fatal errors, we fall through
     // to the next method.
     if ($error !== NULL && $fatal) {
-        return phorum_api_error(PHORUM_ERRNO_ERROR, $error);
+        return phorum_api_error_set(PHORUM_ERRNO_ERROR, $error);
     }
 
     // -----------------------------------------------------------------
@@ -196,6 +196,13 @@ function phorum_api_http_get($url, $method = NULL)
         $work_url = $url;
         for(;;)
         {
+            // Only HTTP allowed.
+            if (!preg_match('!^https?://!i', $work_url)) {
+                $error = "Denying non-HTTP URL: $work_url";
+                $fatal = TRUE;
+                break;
+            }
+
             // Looping prevention.
             if ($max_redirects-- == 0) {
                 $error = "Bailed out after too many page redirects.";
@@ -347,7 +354,7 @@ function phorum_api_http_get($url, $method = NULL)
     // Return fatal errors. For non fatal errors, we fall through
     // to the next method.
     if ($error !== NULL && $fatal) {
-        return phorum_api_error(PHORUM_ERRNO_ERROR, $error);
+        return phorum_api_error_set(PHORUM_ERRNO_ERROR, $error);
     }
 
     // -----------------------------------------------------------------
@@ -375,18 +382,18 @@ function phorum_api_http_get($url, $method = NULL)
 
     // Return errors.
     if ($error !== NULL) {
-        return phorum_api_error(PHORUM_ERRNO_ERROR, $error);
+        return phorum_api_error_set(PHORUM_ERRNO_ERROR, $error);
     }
 
     // Catch illegal methods
     if ($method !== NULL) {
-        return phorum_api_error(
+        return phorum_api_error_set(
             PHORUM_ERRNO_ERROR,
             'Illegal method: ' . $method
         );
     }
 
-    return phorum_api_error(
+    return phorum_api_error_set(
         PHORUM_ERRNO_ERROR,
         'No working HTTP request method found'
     );

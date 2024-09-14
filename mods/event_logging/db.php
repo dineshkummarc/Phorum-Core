@@ -3,7 +3,7 @@
 if(!defined("PHORUM")) return;
 
 // Load the definitions for the constants that we use.
-require_once PHORUM_PATH . '/mods/event_logging/constants.php';
+require_once('./mods/event_logging/constants.php');
 
 // The database schema version, which is used to handle
 // installation and upgrades directly from the module.
@@ -42,7 +42,7 @@ function event_logging_db_install()
         }
 
         $sqlqueries = array();
-        include $sqlfile;
+        include($sqlfile);
 
         if (count($sqlqueries) == 0) {
             print "<b>Unexpected situation on installing " .
@@ -50,7 +50,7 @@ function event_logging_db_install()
                   "queries from file " . htmlspecialchars($sqlfile);
             return false;
         }
-        $err = $PHORUM['DB']->run_queries($sqlqueries);
+        $err = phorum_db_run_queries($sqlqueries);
         if ($err) {
             print "<b>Unexpected situation on installing " .
                   "the Event Logging module</b>: running the " .
@@ -60,7 +60,7 @@ function event_logging_db_install()
         }
 
         // Save our settings.
-        if (!$PHORUM['DB']->update_settings($settings)) {
+        if (!phorum_db_update_settings($settings)) {
             print "<b>Unexpected situation on installing " .
                   "the Event Logging module</b>: updating the " .
                   "mod_event_logging_installed setting failed";
@@ -146,7 +146,7 @@ function event_logging_writelog($loginfo)
     $lvl = isset($loginfo["loglevel"]) ? (int)$loginfo["loglevel"] : 0;
     if ($lvl < $PHORUM["mod_event_logging"]["min_log_level"]) return;
 
-    $loginfo = phorum_api_hook("event_logging_writelog", $loginfo);
+    $loginfo = phorum_hook("event_logging_writelog", $loginfo);
 
     // The record that we will insert in the database.
     $record = array();
@@ -183,11 +183,10 @@ function event_logging_writelog($loginfo)
             case "source":
             case "ip":
             case "hostname":
-                $record[$key] = "'" . $PHORUM['DB']->interact(DB_RETURN_QUOTED, $val) . "'";
+                $record[$key] = "'" . phorum_db_interact(DB_RETURN_QUOTED, $val) . "'";
                 break;
 
-            default: phorum_api_error(
-                PHORUM_ERRNO_DATABASE,
+            default: phorum_database_error(
                 "event_logging_log(): Illegal key " .
                 "field \"$key\" in the \$loginfo argument"
             );
@@ -198,7 +197,7 @@ function event_logging_writelog($loginfo)
     $from_module = FALSE;
     if (!isset($record["source"])) {
         list($source, $from_module) = event_logging_find_source(1);
-        $record["source"] = "'" . $PHORUM['DB']->interact(DB_RETURN_QUOTED, $source) . "'";
+        $record["source"] = "'" . phorum_db_interact(DB_RETURN_QUOTED, $source) . "'";
     }
 
     // Add the category.
@@ -216,7 +215,7 @@ function event_logging_writelog($loginfo)
     // Add the IP address for the current visitor.
     if (!isset($record["ip"]) && isset($_SERVER["REMOTE_ADDR"])) {
         $ip = $_SERVER["REMOTE_ADDR"];
-        $record["ip"] = "'" . $PHORUM['DB']->interact(DB_RETURN_QUOTED, $ip) . "'";
+        $record["ip"] = "'" . phorum_db_interact(DB_RETURN_QUOTED, $ip) . "'";
     }
 
     // Add the hostname for the current visitor.
@@ -224,7 +223,7 @@ function event_logging_writelog($loginfo)
         $PHORUM["mod_event_logging"]["resolve_hostnames"]) {
         $hostname = gethostbyaddr($ip);
         if ($hostname != $ip) {
-            $record["hostname"] = "'" . $PHORUM['DB']->interact(DB_RETURN_QUOTED, $hostname) . "'";
+            $record["hostname"] = "'" . phorum_db_interact(DB_RETURN_QUOTED, $hostname) . "'";
         }
     }
 
@@ -240,13 +239,13 @@ function event_logging_writelog($loginfo)
     }
 
     // Insert the logging record in the database.
-    $PHORUM['DB']->interact(
+    phorum_db_interact(
         DB_RETURN_RES,
         "INSERT INTO {$PHORUM["event_logging_table"]}
                 (".implode(', ', array_keys($record)).")
          VALUES (".implode(', ', $record).")",
-         NULL,
-         DB_MASTERQUERY
+        NULL,
+        DB_MASTERQUERY
     );
 }
 
@@ -260,10 +259,8 @@ function event_logging_writelog($loginfo)
  */
 function event_logging_create_where($filter)
 {
-    global $PHORUM;
-
     if ($filter === NULL || !is_array($filter)) return '';
-    $t = $PHORUM["event_logging_table"]; // shorthand
+    $t = $GLOBALS["PHORUM"]["event_logging_table"]; // shorthand
 
     $where_parts = array();
 
@@ -315,10 +312,10 @@ function event_logging_create_where($filter)
             } else {
                 if (strstr($val, "*")) {
                     $val = str_replace('*', '%', $val);
-                    $val = "'" . $PHORUM['DB']->interact(DB_RETURN_QUOTED, $val) . "'";
+                    $val = "'" . phorum_db_interact(DB_RETURN_QUOTED, $val) . "'";
                     $where_parts[] = "$field LIKE $val";
                 } else {
-                    $val = "'" . $PHORUM['DB']->interact(DB_RETURN_QUOTED, $val) . "'";
+                    $val = "'" . phorum_db_interact(DB_RETURN_QUOTED, $val) . "'";
                     $where_parts[] = "$field = $val";
                 }
             }
@@ -343,7 +340,7 @@ function event_logging_getsources()
 {
     global $PHORUM;
 
-    $rows = $PHORUM['DB']->interact(
+    $rows = phorum_db_interact(
         DB_RETURN_ASSOCS,
         "SELECT DISTINCT(source)
          FROM   {$PHORUM["event_logging_table"]}
@@ -372,7 +369,7 @@ function event_logging_countlogs($filter = NULL)
 
     $where = event_logging_create_where($filter);
 
-    $rows = $PHORUM['DB']->interact(
+    $rows = phorum_db_interact(
         DB_RETURN_ASSOCS,
         "SELECT count(*) AS count
          FROM   {$PHORUM["event_logging_table"]}
@@ -388,7 +385,7 @@ function event_logging_countlogs($filter = NULL)
     if ($max > 0 && $count > $max)
     {
         // Find the log_id at which we need to chop off old logs.
-        $rows = $PHORUM['DB']->interact(
+        $rows = phorum_db_interact(
             DB_RETURN_ASSOCS,
             "SELECT log_id
              FROM   {$PHORUM["event_logging_table"]}
@@ -399,7 +396,7 @@ function event_logging_countlogs($filter = NULL)
 
         // Delete old logs.
         if (isset($rows[0]["log_id"])) {
-            $PHORUM['DB']->interact(
+            phorum_db_interact(
                 DB_RETURN_RES,
                 "DELETE FROM {$PHORUM["event_logging_table"]}
                  WHERE  log_id <= {$rows[0]["log_id"]}",
@@ -467,7 +464,8 @@ function event_logging_getlogs($page = 1, $pagelength = 20, $filter = NULL)
             OFFSET $offset";
     }
 
-    return $PHORUM['DB']->interact(DB_RETURN_ASSOCS, $sql);
+
+    return phorum_db_interact(DB_RETURN_ASSOCS, $sql);
 }
 
 /**
@@ -482,7 +480,7 @@ function event_logging_clearlogs($filter = NULL)
 
     $where = event_logging_create_where($filter);
 
-    $PHORUM['DB']->interact(
+    phorum_db_interact(
         DB_RETURN_RES,
         "DELETE FROM {$PHORUM["event_logging_table"]} $where",
         NULL,
@@ -496,7 +494,7 @@ function event_logging_clearlogs($filter = NULL)
 function event_logging_update_message_id_info($message_id, $forum_id, $thread_id) {
     global $PHORUM;
 
-    $PHORUM['DB']->interact(
+    phorum_db_interact(
         DB_RETURN_RES,
         "UPDATE {$PHORUM["event_logging_table"]}
          SET    forum_id = " . (int)$forum_id . ",

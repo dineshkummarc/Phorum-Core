@@ -11,22 +11,22 @@ if ('cli' != php_sapi_name()) {
 
 define('phorum_page', 'rebuild_forum_paths');
 
-require_once(dirname(__FILE__).'/../include/api.php');
+chdir(dirname(__FILE__) . "/..");
+require_once './common.php';
+include_once( "./include/admin_functions.php" );
 
 // Make sure that the output is not buffered.
-phorum_api_buffer_clear();
+phorum_ob_clean();
 
 print "\nRebuilding forum path info ...\n";
 
-$forums = phorum_api_forums_build_path();
+$forums = phorum_admin_build_path_array();
 unset($forums[0]);
 
 foreach($forums as $fid => $forumpath)
 {
-    $PHORUM['DB']->update_forum(array(
-        'forum_id'   => $fid,
-        'forum_path' => $forumpath
-    ));
+    $update_forum = array('forum_id'=>$fid, 'forum_path'=>$forumpath);
+    phorum_db_update_forum($update_forum);
 }
 
 print "\n";

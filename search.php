@@ -16,16 +16,16 @@
 //   along with this program.                                                 //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
-
 define('phorum_page','search');
-require_once './common.php';
 
-require_once PHORUM_PATH.'/include/api/format/messages.php';
+include_once("./common.php");
+include_once("./include/forum_functions.php");
 
 if(!phorum_check_read_common()) {
   return;
 }
 
+include_once("./include/format_functions.php");
 // set all our URL's
 phorum_build_common_urls();
 
@@ -46,8 +46,7 @@ $PHORUM["DATA"]["SEARCH"]["showresults"] = false;
 $PHORUM["DATA"]["SEARCH"]["safe_search"] = "";
 $PHORUM["DATA"]["SEARCH"]["safe_author"] = "";
 
-function phorum_search_check_valid_vars()
-{
+function phorum_search_check_valid_vars() {
     global $PHORUM;
     $retval=true;
 
@@ -119,8 +118,8 @@ if(!empty($_GET["search"]) || !empty($_GET["author"])) {
      *     intermediate "Please wait while searching" page before doing the
      *     redirect. This is useful in case searching is taking a while, in
      *     which case users might otherwise repeatedly start hitting the
-     *     search button when results don't show up immediately.<br>
-     *     <br>
+     *     search button when results don't show up immediately.<br />
+     *     <br />
      *     This hook can be used to modify the parameters that are used
      *     for building the redirect URL. This can be useful in case a
      *     search page is implemented that uses more fields than the standard
@@ -134,26 +133,27 @@ if(!empty($_GET["search"]) || !empty($_GET["author"])) {
      *     "Please wait while searching" intermediate page) is done.
      *
      * [input]
-     *     An array of phorum_api_url() parameters that will be used for
+     *     An array of phorum_get_url() parameters that will be used for
      *     building the redirect URL.
      *
      * [output]
      *     The possibly updated array of parameters.
      */
     if (isset($PHORUM["hooks"]["search_redirect"])) {
-        $url_parameters = phorum_api_hook("search_redirect", $url_parameters);
+        $url_parameters = phorum_hook("search_redirect", $url_parameters);
     }
 
-    $search_url = call_user_func_array('phorum_api_url', $url_parameters);
+    $search_url = call_user_func_array('phorum_get_url', $url_parameters);
 
     if (!empty($PHORUM["skip_intermediate_search_page"])) {
-        phorum_api_redirect($search_url);
+        phorum_redirect_by_url($search_url);
+        exit(0);
     } else {
         $PHORUM["DATA"]["OKMSG"]=$PHORUM["DATA"]["LANG"]["SearchRunning"];
         $PHORUM["DATA"]["BACKMSG"]=$PHORUM["DATA"]["LANG"]["BackToSearch"];
         $PHORUM["DATA"]["URL"]["REDIRECT"]=$search_url;
         $PHORUM["DATA"]["REDIRECT_TIME"]=1;
-        phorum_api_output("message");
+        phorum_output("message");
         return;
     }
 }
@@ -178,7 +178,8 @@ if(!isset($PHORUM["args"]["match_threads"])) $PHORUM["args"]["match_threads"]=FA
 settype($PHORUM["args"]["match_threads"], "bool");
 
 if(!phorum_search_check_valid_vars()) {
-    phorum_api_redirect(PHORUM_LIST_URL);
+    $redir_url=phorum_get_url(PHORUM_LIST_URL);
+    phorum_redirect_by_url($redir_url);
 }
 
 // Check what forums the current user can read.
@@ -189,8 +190,9 @@ $allowed_forums = phorum_api_user_check_access(
 // setup some stuff based on the url passed
 if(!empty($phorum_search) || !empty($phorum_author)){
 
-    $PHORUM["DATA"]["SEARCH"]["safe_search"] = phorum_api_format_htmlspecialchars($phorum_search);
-    $PHORUM["DATA"]["SEARCH"]["safe_author"] = phorum_api_format_htmlspecialchars($phorum_author);
+    $PHORUM["DATA"]["SEARCH"]["safe_search"] = htmlspecialchars($phorum_search, ENT_QUOTES, $PHORUM["DATA"]["HCHARSET"]);
+    $PHORUM["DATA"]["SEARCH"]["safe_author"] = htmlspecialchars($phorum_author, ENT_QUOTES, $PHORUM["DATA"]["HCHARSET"]);
+
 
     if(isset($PHORUM["args"]["page"])){
         $PHORUM["args"]["page"] = (int)$PHORUM["args"]["page"];
@@ -209,17 +211,6 @@ if(!empty($phorum_search) || !empty($phorum_author)){
 
     settype($PHORUM["args"]["match_dates"], "int");
 
-    $urlargs = array(
-        PHORUM_SEARCH_URL,
-        "search=" . urlencode($phorum_search),
-        "author=" . urlencode($phorum_author),
-        "page=%page_num%",
-        "match_type={$PHORUM['args']['match_type']}",
-        "match_dates={$PHORUM['args']['match_dates']}",
-        "match_forum=".urlencode($PHORUM['args']['match_forum']),
-        "match_threads=".urlencode($PHORUM["args"]["match_threads"])
-    );
-
     // setup the needed data for an alternate search backend
     // needs to get fed by posted messages
     $search_request_data = array(
@@ -234,16 +225,15 @@ if(!empty($phorum_search) || !empty($phorum_author)){
         'results' => array(),
         'raw_body' => 0,
         'totals' => 0,
-        'continue' => 1,
-        'urlargs' => $urlargs
+        'continue' => 1
     );
 
     if (isset($PHORUM["hooks"]["search_action"]))
-        $search_request_data = phorum_api_hook('search_action',$search_request_data);
+        $search_request_data = phorum_hook('search_action',$search_request_data);
 
     // only continue if our hook was either not run or didn't return a stop request
     if($search_request_data['continue']) {
-        $arr = $PHORUM['DB']->search($phorum_search, $phorum_author, $PHORUM["args"]["match_threads"], $offset, $PHORUM["list_length"], $PHORUM["args"]["match_type"], $PHORUM["args"]["match_dates"], $PHORUM["args"]["match_forum"]);
+        $arr = phorum_db_search($phorum_search, $phorum_author, $PHORUM["args"]["match_threads"], $offset, $PHORUM["list_length"], $PHORUM["args"]["match_type"], $PHORUM["args"]["match_dates"], $PHORUM["args"]["match_forum"]);
         $raw_body = 0;
     } else {
         $arr['rows'] = $search_request_data['results'];
@@ -255,33 +245,31 @@ if(!empty($phorum_search) || !empty($phorum_author)){
 
         $match_number = $start + 1;
 
-        $forums = phorum_api_forums_by_vroot(
-            $PHORUM["vroot"], PHORUM_FLAG_INCLUDE_INACTIVE
-        );
+        $forums = phorum_db_get_forums(0, NULL, $PHORUM["vroot"]);
 
         if (!$raw_body)
-            $arr["rows"] = phorum_api_format_messages($arr["rows"]);
+            $arr["rows"] = phorum_format_messages($arr["rows"]);
 
         foreach($arr["rows"] as $key => $row){
             $arr["rows"][$key]["number"] = $match_number;
 
-            $arr["rows"][$key]["URL"]["READ"] = phorum_api_url(PHORUM_FOREIGN_READ_URL, $row["forum_id"], $row["thread"], $row["message_id"]);
+            $arr["rows"][$key]["URL"]["READ"] = phorum_get_url(PHORUM_FOREIGN_READ_URL, $row["forum_id"], $row["thread"], $row["message_id"]);
 
             // strip HTML & BB Code
             if(!$raw_body) {
-                $body = phorum_api_format_strip($arr["rows"][$key]["body"]);
+                $body = phorum_strip_body($arr["rows"][$key]["body"]);
                 $arr["rows"][$key]["short_body"] = mb_substr($body, 0, 400, $PHORUM["DATA"]["HCHARSET"]);
 
             }
             $arr["rows"][$key]["raw_datestamp"] = $row["datestamp"];
-            $arr["rows"][$key]["datestamp"] = phorum_api_format_relative_date($row["datestamp"]);
+            $arr["rows"][$key]["datestamp"] = phorum_relative_date($row["datestamp"]);
             $forum_ids[$row["forum_id"]] = $row["forum_id"];
 
             $match_number++;
         }
 
         foreach($arr["rows"] as $key => $row){
-            $arr["rows"][$key]["URL"]["LIST"] = phorum_api_url(PHORUM_LIST_URL, $row["forum_id"]);
+            $arr["rows"][$key]["URL"]["LIST"] = phorum_get_url(PHORUM_LIST_URL, $row["forum_id"]);
             $arr["rows"][$key]["forum_name"] = $forums[$row["forum_id"]]["name"];
         }
 
@@ -297,53 +285,49 @@ if(!empty($phorum_search) || !empty($phorum_author)){
 
         // first $pages_shown pages
         if($page - floor($pages_shown/2) <= 0  || $page < $pages_shown){
-            $page_start=1;
+          $page_start=1;
 
-            // last $pages_shown pages
+          // last $pages_shown pages
         } elseif($page > $pages - floor($pages_shown/2)) {
-            $page_start = $pages - $pages_shown + 1;
+          $page_start = $pages - $pages_shown + 1;
 
-            // all others
+          // all others
         } else {
-            $page_start = $page - floor($pages_shown/2);
+          $page_start = $page - floor($pages_shown/2);
         }
-
-        $PHORUM["DATA"]["URL"]["PAGING_TEMPLATE"] =  call_user_func_array('phorum_api_url', $search_request_data['urlargs']);
 
 
         $pageno = 1;
         for($x = 0;$x < $pages_shown && $x < $pages;$x++){
             $pageno = $x + $page_start;
             $PHORUM["DATA"]["PAGES"][] = array("pageno" => $pageno,
-                "url" => str_replace('%page_num%',$pageno,$PHORUM["DATA"]["URL"]["PAGING_TEMPLATE"]),
+                "url" => phorum_get_url(PHORUM_SEARCH_URL, "search=" . urlencode($phorum_search), "author=" . urlencode($phorum_author), "page=$pageno", "match_type={$PHORUM['args']['match_type']}", "match_dates={$PHORUM['args']['match_dates']}", "match_forum=".urlencode($PHORUM['args']['match_forum']), "match_threads=".urlencode($PHORUM["args"]["match_threads"]))
                 );
         }
 
         $PHORUM["DATA"]["CURRENTPAGE"] = $page;
         $PHORUM["DATA"]["TOTALPAGES"] = $pages;
-
+        $PHORUM["DATA"]["URL"]["PAGING_TEMPLATE"] = phorum_get_url(PHORUM_SEARCH_URL, "search=" . urlencode($phorum_search), "author=" . urlencode($phorum_author), "page=%page_num%", "match_type={$PHORUM['args']['match_type']}", "match_dates={$PHORUM['args']['match_dates']}", "match_forum=".urlencode($PHORUM['args']['match_forum']), "match_threads=".urlencode($PHORUM["args"]["match_threads"]));
 
         if ($page_start > 1){
-            $PHORUM["DATA"]["URL"]["FIRSTPAGE"] = str_replace('%page_num%',1,$PHORUM["DATA"]["URL"]["PAGING_TEMPLATE"]);
+            $PHORUM["DATA"]["URL"]["FIRSTPAGE"] = phorum_get_url(PHORUM_SEARCH_URL, "search=" . urlencode($phorum_search), "author=" . urlencode($phorum_author), "page=1", "match_type={$PHORUM['args']['match_type']}", "match_dates={$PHORUM['args']['match_dates']}", "match_forum=".urlencode($PHORUM['args']['match_forum']), "match_threads=".urlencode($PHORUM["args"]["match_threads"]));
         }
 
         if ($pageno < $pages){
-            $PHORUM["DATA"]["URL"]["LASTPAGE"] = str_replace('%page_num%',$pages,$PHORUM["DATA"]["URL"]["PAGING_TEMPLATE"]);
+            $PHORUM["DATA"]["URL"]["LASTPAGE"] = phorum_get_url(PHORUM_SEARCH_URL, "search=" . urlencode($phorum_search), "author=" . urlencode($phorum_author), "page=$pages", "match_type={$PHORUM['args']['match_type']}", "match_dates={$PHORUM['args']['match_dates']}", "match_forum=".urlencode($PHORUM['args']['match_forum']), "match_threads=".urlencode($PHORUM["args"]["match_threads"]));
         }
 
         if ($pages > $page){
             $nextpage = $page + 1;
-            $PHORUM["DATA"]["URL"]["NEXTPAGE"] = str_replace('%page_num%',$nextpage,$PHORUM["DATA"]["URL"]["PAGING_TEMPLATE"]);
-            $PHORUM["DATA"]["NEXTPAGE"] = $nextpage;
+            $PHORUM["DATA"]["URL"]["NEXTPAGE"] = phorum_get_url(PHORUM_SEARCH_URL, "search=" . urlencode($phorum_search), "author=" . urlencode($phorum_author), "page=$nextpage", "match_type={$PHORUM['args']['match_type']}", "match_dates={$PHORUM['args']['match_dates']}", "match_forum=".urlencode($PHORUM['args']['match_forum']), "match_threads=".urlencode($PHORUM["args"]["match_threads"]));
         }
         if ($page > 1){
             $prevpage = $page-1;
-            $PHORUM["DATA"]["URL"]["PREVPAGE"] = str_replace('%page_num%',$prevpage,$PHORUM["DATA"]["URL"]["PAGING_TEMPLATE"]);
-            $PHORUM["DATA"]["PREVPAGE"] = $prevpage;
+            $PHORUM["DATA"]["URL"]["PREVPAGE"] = phorum_get_url(PHORUM_SEARCH_URL, "search=" . urlencode($phorum_search), "author=" . urlencode($phorum_author), "page=$prevpage", "match_type={$PHORUM['args']['match_type']}", "match_dates={$PHORUM['args']['match_dates']}", "match_forum=".urlencode($PHORUM['args']['match_forum']), "match_threads=".urlencode($PHORUM["args"]["match_threads"]));
         }
 
         if (isset($PHORUM["hooks"]["search"]))
-            $arr["rows"] = phorum_api_hook("search", $arr["rows"]);
+            $arr["rows"] = phorum_hook("search", $arr["rows"]);
 
         $PHORUM["DATA"]["MATCHES"] = $arr["rows"];
 
@@ -357,19 +341,18 @@ if(!empty($phorum_search) || !empty($phorum_author)){
     $PHORUM["DATA"]["FOCUS_TO_ID"] = 'search';
 
     if (isset($PHORUM["hooks"]["search_start"]))
-        $PHORUM['args'] = phorum_api_hook('search_start',$PHORUM['args']);
+        $PHORUM['args'] = phorum_hook('search_start',$PHORUM['args']);
 }
 
-$PHORUM["DATA"]["URL"]["ACTION"] = phorum_api_url(PHORUM_SEARCH_ACTION_URL);
+$PHORUM["DATA"]["URL"]["ACTION"] = phorum_get_url(PHORUM_SEARCH_ACTION_URL);
 $PHORUM["DATA"]["SEARCH"]["forum_id"] = $PHORUM["forum_id"];
 $PHORUM["DATA"]["SEARCH"]["match_type"] = $PHORUM["args"]["match_type"];
 $PHORUM["DATA"]["SEARCH"]["match_dates"] = $PHORUM["args"]["match_dates"];
 $PHORUM["DATA"]["SEARCH"]["match_forum"] = $PHORUM["args"]["match_forum"];
 $PHORUM["DATA"]["SEARCH"]["match_threads"] = (int)$PHORUM["args"]["match_threads"];
 
-require_once './include/api/forums.php';
-$PHORUM["DATA"]["SEARCH"]["forum_list"] = phorum_api_forums_tree();
-if (isset($PHORUM["args"]["match_forum"])) {
+$PHORUM["DATA"]["SEARCH"]["forum_list"] = phorum_build_forum_list();
+if(isset($PHORUM["args"]["match_forum"])){
     $match_forum = is_array($PHORUM['args']['match_forum'])
                  ? $PHORUM['args']['match_forum']
                  : explode(",", $PHORUM["args"]["match_forum"]);
@@ -379,7 +362,6 @@ if (isset($PHORUM["args"]["match_forum"])) {
         }
     }
 }
-
 
 $PHORUM["DATA"]["SEARCH"]["forum_list_length"] = min(10, count($PHORUM["DATA"]["SEARCH"]["forum_list"])+1);
 
@@ -391,7 +373,7 @@ if ($PHORUM["args"]["match_type"] == "USER_ID")
     } else {
         $search_name = $search_user["display_name"];
         if (empty($PHORUM['custom_display_name'])) {
-            $search_name = phorum_api_format_htmlspecialchars($search_name);
+            $search_name = htmlspecialchars($search_name, ENT_QUOTES, $PHORUM["DATA"]["HCHARSET"]);
         }
     }
     $PHORUM["DATA"]["HEADING"] = $PHORUM["DATA"]["LANG"]["SearchAllPosts"];
@@ -434,10 +416,10 @@ $PHORUM["DATA"]["DESCRIPTION"] = "";
  */
 $template = 'search';
 if (isset($PHORUM["hooks"]["search_output"])) {
-    $template = phorum_api_hook("search_output", $template);
+    $template = phorum_hook("search_output", $template);
     if ($template === NULL) return;
 }
 
-phorum_api_output($template);
+phorum_output($template);
 
 ?>

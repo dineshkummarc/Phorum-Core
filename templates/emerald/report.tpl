@@ -11,19 +11,16 @@
     <h4>{LANG->ConfirmReportMessage}</h4>
     <p>{LANG->ReportPostExplanation}</p>
     <form method="post" action="{ReportURL}">
-        <textarea name="explanation" rows="5" cols="60" wrap="virtual">{explanation}</textarea><br />
-        <br />
+        <textarea name="explanation" rows="5" cols="60" wrap="virtual">{explanation}</textarea>
+        <br /><br />
         <input type="submit" name="report" value="{LANG->Report}" />
-        <input type="submit" name="cancel" value="{LANG->Cancel}" />
     </form>
+    <br /><br />
 </div>
 
-<p>&nbsp;</p>
-
 <div class="generic">
-<strong>{PostSubject}</strong>
-<p>{LANG->Postedby}: {PostAuthor}</p>
-<p>{PostBody}</p>
-
+    <strong>{PostSubject}</strong>
+    <p>{LANG->Postedby}: {PostAuthor}</p>
+    <p>{PostBody}</p>
 </div>
 <!-- END TEMPLATE report.tpl -->

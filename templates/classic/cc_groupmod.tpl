@@ -29,9 +29,9 @@
     </option>
     {/LOOP FILTER}
 </select> <input type="submit" value="{LANG->Go}" /></form>
-    <br />
-    {IF USERS}
-    <br />
+<br />
+{IF USERS}
+<br />
     <form method="post" action="{URL->ACTION}">
       <table class="PhorumFormTable" cellspacing="0" border="0">
       {POST_VARS}
@@ -70,7 +70,7 @@
 {ELSE}
     {LANG->NoUserMatchFilter}
 {/IF}
-  </div>
+</div>
 {ELSE}
   <div class="PhorumStdBlockHeader PhorumHeaderText" style="text-align: left;">{LANG->SelectGroupMod}</div>
   <div class="PhorumStdBlock" style="text-align: left;">

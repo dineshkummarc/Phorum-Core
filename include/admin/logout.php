@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,18 +15,16 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if(!defined("PHORUM_ADMIN")) return;
+    if(!defined("PHORUM_ADMIN")) return;
 
-require_once './include/api/user.php';
+    include_once("./include/api/base.php");
+    include_once("./include/api/user.php");
 
-phorum_api_user_session_destroy(PHORUM_ADMIN_SESSION);
-
-$redir_url = phorum_admin_build_url(NULL, TRUE);
-phorum_api_redirect($redir_url);
-
-exit();
+    phorum_api_user_session_destroy(PHORUM_ADMIN_SESSION);
+    $redir_url = phorum_admin_build_url('base', TRUE);
+    phorum_redirect_by_url($redir_url);
+    exit();
 
 ?>

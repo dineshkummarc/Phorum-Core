@@ -17,34 +17,13 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-define('phorum_page', 'javascript');
-require_once './common.php';
-
-// ----------------------------------------------------------------------
-// Flags, added by Phorum internally
-// ----------------------------------------------------------------------
+define('phorum_page','javascript');
+require_once("./common.php");
 
 // When loaded from the admin interface, the admin parameter will be set
 // in the URL. We use that parameter to not load template and module
 // related javascript code.
-$only_core = !empty($PHORUM['args']['admin']);
-
-// ----------------------------------------------------------------------
-// Flags that external sites can add to the javascript URL:
-// ----------------------------------------------------------------------
-
-// "core" can be added to the URL, to flag that only the core scripts
-// need to be included, e.g. http://example.com/phorum/javascript?core
-$only_core = in_array('core', $PHORUM['args']);
-
-// "nojquery" can be added to the URL, to flag that the jquery library
-// needs to be omitted. This can be useful if the site loads a jquery
-// library already. E.g. http://example.com/phorum/javascript?core,nojquery
-$no_jquery = in_array('nojquery', $PHORUM['args']);
-
-// ----------------------------------------------------------------------
-// Start of main code
-// ----------------------------------------------------------------------
+$for_admin = !empty($PHORUM['args']['admin']);
 
 // So we can use {URL->HTTP_PATH} in the templates.
 phorum_build_common_urls();
@@ -53,14 +32,26 @@ phorum_build_common_urls();
 // have to be added to the javascript code.
 $module_registrations = array();
 
-// Add the jQuery JavaScript library code, unless "nojquery" was flagged.
-if (!$no_jquery) {
-    $module_registrations[] = array(
-        'module'    => 'core',
-        'source'    => 'file(include/javascript/jquery-1.6.2.min.js)',
-        'cache_key' => '1.4.4.min'
-    );
-}
+// Add core JSON parser library code
+$module_registrations[] = array(
+    'module'    => 'core',
+    'source'    => 'file(include/ajax/json2.js.php)',
+    'cache_key' => filemtime('./include/ajax/json2.js.php')
+);
+
+// Add the jQuery JavaScript library code.
+$module_registrations[] = array(
+    'module'    => 'core',
+    'source'    => 'file(include/javascript/jquery-1.4.4.min.js)',
+    'cache_key' => '1.4.4.min'
+);
+
+// Add the jQuery JSON plugin.
+$module_registrations[] = array(
+    'module'    => 'core',
+    'source'    => 'file(include/javascript/jquery.json-1.3.min.js)',
+    'cache_key' => '1.3.min'
+);
 
 // Add the jQuery bgiframe plugin.
 $module_registrations[] = array(
@@ -69,24 +60,32 @@ $module_registrations[] = array(
     'cache_key' => '2.1.2.min'
 );
 
-// Add Douglas Crockford's json2 library for supporting JSON.encode and
-// JSON.stringify in browsers that do not support these.
-$module_registrations[] = array(
-    'module'    => 'core',
-    'source'    => 'file(include/javascript/json2.js)',
-    'cache_key' => '2011-02-23'
-);
-
 // Add the Phorum JavaScript library.
 $module_registrations[] = array(
     'module'    => 'core',
     'source'    => 'file(include/javascript/phorum-javascript-library.php)'
 );
 
+// Add core Phorum posting form object manipulation client JavaScript code.
+$module_registrations[] = array(
+    'module'    => 'core',
+    'source'    => 'file(include/posting/form_objects.js.php)',
+    'cache_key' => filemtime('./include/posting/form_objects.js.php')
+);
+
+
+// Add core Phorum Ajax layer client JavaScript code.
+$module_registrations[] = array(
+    'module'    => 'core',
+    'source'    => 'file(include/ajax/client.js.php)',
+    'cache_key' => filemtime('./include/ajax/client.js.php') .
+                   $PHORUM['DATA']['URL']['AJAX']
+);
+
 // Add template specific javascript code, if available. The template writer
 // can put the javascript code to include in the file
 // "templates/<name>/javascript.tpl" or "templates/<name>/javascript.php".
-if (!$only_core) {
+if (!$for_admin) {
     if (file_exists("./templates/{$PHORUM['template']}/javascript.tpl") ||
         file_exists("./templates/{$PHORUM['template']}/javascript.php")) {
         $module_registrations[] = array(
@@ -116,38 +115,38 @@ if (!$only_core) {
  *     code for inclusion by adding a registration to this array.
  *     A registration is an array, containing the following fields:
  *     <ul>
- *     <li><b>module</b><br>
+ *     <li><b>module</b><br />
  *         The name of the module that adds the registration.
  *     </li>
- *     <li><b>source</b><br>
+ *     <li><b>source</b><br />
  *         Specifies the source of the JavaScript data. This can be one of:
  *         <ul>
- *         <li><b>file(&lt;path to filename&gt;)</b><br>
+ *         <li><b>file(&lt;path to filename&gt;)</b><br />
  *             For including a static JavaScript file. The path should be
  *             absolute or relative to the Phorum install directory,
  *             e.g. "<literal>file(mods/foobar/baz.js</literal>)".
- *             Because this file is loaded using a PHP include call,
+ *             Because this file is loaded using a PHP include() call,
  *             it is possible to include PHP code in this file. Mind that
  *             this code is stored interpreted in the cache.</li>
- *         <li><b>template(&lt;template name&gt;)</b><br>
+ *         <li><b>template(&lt;template name&gt;)</b><br />
  *             For including a Phorum template,
  *             e.g. "<literal>template(foobar::baz)</literal>"</li>
- *         <li><b>function(&lt;function name&gt;)</b><br>
+ *         <li><b>function(&lt;function name&gt;)</b><br />
  *             For calling a function to retrieve the JavaScript code,
- *             e.g. "<literal>function(mod_foobar_get_js)</literal>"</li>
+ *             e.g. "<literal>function(mod_foobar_get_js</literal>)"</li>
  *         </ul>
  *     </li>
- *     <li><b>cache_key</b><br>
+ *     <li><b>cache_key</b><br />
  *         To make caching of the generated JavaScript code
  *         possible, the module should provide a cache key using this
  *         field. This cache key needs to change if the module will
- *         provide different JavaScript code.<br>
- *         <br>
+ *         provide different JavaScript code.<br />
+ *         <br />
  *         Note: in case "file" or "template" is used as the source,
  *         you are allowed to omit the cache_key. In that case, the
  *         modification time of the involved file(s) will be used as
- *         the cache key.<br>
- *         <br>
+ *         the cache key.<br />
+ *         <br />
  *         It is okay for the module to provide multiple cache keys
  *         for different situations (e.g. if the JavaScript code depends on
  *         a group). Keep in mind though that for each different
@@ -167,23 +166,20 @@ if (!$only_core) {
  *     The same array as the one that was used as the hook call
  *     argument, possibly extended with one or more registrations.
  */
-if (!$only_core && isset($PHORUM['hooks']['javascript_register'])) {
-    $module_registrations = phorum_api_hook(
+if (!$for_admin && isset($PHORUM['hooks']['javascript_register'])) {
+    $module_registrations = phorum_hook(
         'javascript_register', $module_registrations
     );
 }
 
-// Generate the cache key. Include some variables that could influence
-// the final script code.
-$cache_key =
-    $PHORUM['template'] . ':' .
-    $PHORUM['language'] . ':' .
-    $PHORUM['http_path'];
-
-// Add cache key data for the registrations.
+// Generate the cache key. While adding cache keys for the module
+// registrations, we also check the validity of the registration data.
+// We start the cache key with the template and language, so template
+// javascript is taken care of and so language strings can be used
+// inside the javascript files.
+$cache_key = $PHORUM['template'] . ':' . $PHORUM['language'];
 foreach ($module_registrations as $id => $r)
 {
-    // Here we check the validity of the registration data.
     if (!isset($r['module'])) {
         trigger_error(
             "javascript_register hook: module registration error: " .
@@ -220,14 +216,14 @@ foreach ($module_registrations as $id => $r)
                 // the cached template file if required. This is the easiest
                 // way to make this work correctly for nested template files.
                 ob_start();
-                include phorum_api_template($m[2]);
+                include(phorum_get_template($m[2]));
                 $module_registrations[$id]['content'] = ob_get_contents();
                 ob_end_clean();
 
                 // We use the mtime of the compiled template as the cache
                 // key if no specific cache key was set.
                 if (!isset($r['cache_key'])) {
-                    list ($m[2], $php, $tpl) = phorum_api_template_resolve($m[2]);
+                    list ($m[2], $php, $tpl) = phorum_get_template_file($m[2]);
                     $mtime = @filemtime($php);
                     $r['cache_key'] = $mtime;
                     $module_registrations[$id]['cache_key'] = $mtime;
@@ -263,17 +259,23 @@ $cache_key = md5($cache_key);
 $content = NULL;
 $cache_time = 0;
 
-if (!empty($PHORUM['cache_javascript'])) {
+if (!empty($PHORUM['cache_javascript']))
+{
     $cache_data = phorum_cache_get('js', $cache_key);
     if ($cache_data !== null) {
-        list ($cache_time, $content) = $cache_data;
+        list($cache_time,$content) = $cache_data;
     }
 }
 
 // Create the cache file if it does not exist or if caching is disabled.
-if (isset($PHORUM['args']['refresh']) || $content === null)
+if (isset($PHORUM['args']['refresh']) ||
+    $content === null)
 {
-    $content = '';
+    $content =
+        "// Phorum object. Other JavaScript code for Phorum can extend\n" .
+        "// this one to implement functionality without risking\n" .
+        "// name space collissions.\n" .
+        "Phorum = {};\n\n";
 
     foreach ($module_registrations as $id => $r)
     {
@@ -288,7 +290,7 @@ if (isset($PHORUM['args']['refresh']) || $content === null)
                 // just in case "." is not in the PHP include path.
                 $path = $r['source'][0] == '/'
                       ? $r['source'] : './'.$r['source'];
-                include $path;
+                include($path);
                 $content .= ob_get_contents();
                 ob_end_clean();
                 break;
@@ -331,7 +333,7 @@ if (isset($PHORUM['args']['refresh']) || $content === null)
      *     The filtered JavaScript code.
      */
     if (isset($PHORUM['hooks']['javascript_filter'])) {
-        $content = phorum_api_hook('javascript_filter', $content);
+        $content = phorum_hook('javascript_filter', $content);
     }
 
     if (!empty($PHORUM['cache_javascript'])) {
@@ -354,12 +356,22 @@ $last_modified = $cache_time;
 
 // Check if a If-Modified-Since header is in the request. If yes, then
 // check if the JavaScript code has changed, based on the filemtime() data from
-// above. If nothing changed, then we return a 304 header, to tell the
+// above. If nothing changed, then we can return a 304 header, to tell the
 // browser to use the cached data.
-phorum_api_output_last_modify_time($last_modified);
+if (!empty($_SERVER['HTTP_IF_MODIFIED_SINCE'])) {
+    $header = preg_replace('/;.*$/', '', $_SERVER["HTTP_IF_MODIFIED_SINCE"]);
+    $if_modified_since = strtotime($header);
+
+    if ($if_modified_since == $last_modified) {
+        header("HTTP/1.0 304 Not Modified");
+        exit(0);
+    }
+}
 
 // Send the JavaScript to the browser.
 header("Content-Type: text/javascript");
+header("Last-Modified: " . gmdate('D, d M Y H:i:s \G\M\T', $last_modified));
+
 
 echo $content;
 

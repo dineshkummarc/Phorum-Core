@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,12 +15,11 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_CONTROL_CENTER")) return;
+if(!defined("PHORUM_CONTROL_CENTER")) return;
 
-if (count($_POST)) {
+if(count($_POST)) {
 
     // these two are flipped as we store if hidden in the db, but we ask if allowed in the UI
     $_POST["hide_email"] = (isset($_POST["hide_email"]) && $_POST["hide_email"]) ? 0 : 1;
@@ -44,6 +44,8 @@ if (!empty($PHORUM['DATA']['PROFILE']["hide_activity"])) {
     // more html stuff in the code. yuck.
     $PHORUM["DATA"]["PROFILE"]["hide_activity_checked"] = " checked=\"checked\"";
 }
+
+$PHORUM["DATA"]["HEADING"] = $PHORUM["DATA"]["LANG"]["EditPrivacy"];
 
 $PHORUM['DATA']['PROFILE']['PRIVACYSETTINGS'] = 1;
 $template = "cc_usersettings";

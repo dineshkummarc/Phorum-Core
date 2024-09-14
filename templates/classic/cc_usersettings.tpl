@@ -29,7 +29,7 @@
           <tr>
             <td valign="top">{LANG->EmailVerify}:&nbsp;</td>
             <td>
-              {LANG->EmailVerifyDesc} {PROFILE->email_temp_part}<br>
+              {LANG->EmailVerifyDesc} {PROFILE->email_temp_part}<br />
               {LANG->EmailVerifyEnterCode}: <input type="text" name="email_verify_code" value="" />
             </td>
           </tr>
@@ -68,18 +68,16 @@
             <td><input type="checkbox" name="is_dst" value="1"{IF PROFILE->is_dst 1} checked="checked"{/IF}/></td>
           </tr>
         {/IF}
-        {IF PROFILE->LANGSELECTION}
-          <tr>
-            <td nowrap="nowrap">{LANG->Language}:&nbsp;</td>
-            <td>
-              <select name="user_language">
-                {LOOP LANGUAGES}
-                  <option value="{LANGUAGES->file}"{LANGUAGES->sel}>{LANGUAGES->name}</option>
-                {/LOOP LANGUAGES}
-              </select>
-            </td>
-          </tr>
-        {/IF}
+        <tr>
+          <td nowrap="nowrap">{LANG->Language}:&nbsp;</td>
+          <td>
+            <select name="user_language">
+              {LOOP LANGUAGES}
+                <option value="{LANGUAGES->file}"{LANGUAGES->sel}>{LANGUAGES->name}</option>
+              {/LOOP LANGUAGES}
+            </select>
+          </td>
+        </tr>
         {IF PROFILE->TMPLSELECTION}
           <tr>
             <td nowrap="nowrap">{LANG->Template}:&nbsp;</td>
@@ -137,9 +135,8 @@
           <td nowrap="nowrap">{LANG->PMNotifyEnableSetting}:&nbsp;</td>
           <td>
             <select name="pm_email_notify">
-                <option value="0"{IF PROFILE->email_notify 0} selected="selected" {/IF}>{LANG->None}</option>
-                <option value="1"{IF PROFILE->email_notify 1} selected="selected" {/IF}>{LANG->FollowThread}</option>
-                <option value="2"{IF PROFILE->email_notify 2} selected="selected" {/IF}>{LANG->FollowWithEmailCC}</option>
+              <option value="0"{IF PROFILE->pm_email_notify 0} selected="selected" {/IF}>{LANG->No}</option>
+              <option value="1"{IF PROFILE->pm_email_notify 1} selected="selected" {/IF}>{LANG->Yes}</option>
             </select>
           </td>
         </tr>

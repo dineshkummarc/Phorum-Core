@@ -1,6 +1,5 @@
 #!/usr/bin/php
 <?php
-
 /*
 
 This is just a simple script for updating the post-count of each user, which
@@ -20,10 +19,11 @@ if ('cli' != php_sapi_name()) {
 define("PHORUM_ADMIN", 1);
 define('phorum_page', 'rebuild_postcount');
 
-require_once(dirname(__FILE__).'/../include/api.php');
+chdir(dirname(__FILE__) . "/..");
+require_once './common.php';
 
 // Make sure that the output is not buffered.
-phorum_api_buffer_clear();
+phorum_ob_clean();
 
 if (! ini_get('safe_mode')) {
     set_time_limit(0);
@@ -31,7 +31,7 @@ if (! ini_get('safe_mode')) {
 }
 
 print "\nCounting the posts for all users ...\n";
-$postcounts = $PHORUM['DB']->interact(
+$postcounts = phorum_db_interact(
     DB_RETURN_ROWS,
     "SELECT user_id, count(*)
      FROM   {$PHORUM["message_table"]}

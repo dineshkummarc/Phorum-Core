@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -20,6 +21,6 @@
 // left in for compatibility
 // will remove in 5.3 or 6.0
 
-require_once './feed.php';
+include_once("./feed.php");
 
 ?>

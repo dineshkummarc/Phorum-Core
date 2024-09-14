@@ -31,11 +31,11 @@
 
             {IF PREVIEW->attachments}
                 <div class="attachments">
-                    {LANG->Attachments}:<br/>
+                    {LANG->Attachments}:<br />
                     {LOOP PREVIEW->attachments}
                         <a href="{PREVIEW->attachments->url}">{LANG->AttachOpen}</a> | <a href="{PREVIEW->attachments->download_url}">{LANG->AttachDownload}</a> -
                         {PREVIEW->attachments->name}
-                        ({PREVIEW->attachments->size})</a><br/>
+                        ({PREVIEW->attachments->size})</a><br />
                     {/LOOP PREVIEW->attachments}
                 </div>
             {/IF}
@@ -71,16 +71,16 @@
                 {/IF}
                 <small>
                 {IF MODE "moderation"}
-                  {LANG->Author}:<br />
+                  {LANG->YourName}:<br />
                 {ELSE}
-                  {LANG->YourName}:<br/>
+                  {LANG->Author}:<br />
                 {/IF}
                 {IF OPTION_ALLOWED->edit_author}
                     <input type="text" name="author" size="30" value="{POSTING->author}" />
                 {ELSE}
                     <big><strong>{POSTING->author}</strong></big><br />
                 {/IF}
-                <br/>
+                <br />
 
                 {IF MODE "post" OR MODE "reply"}
 
@@ -127,24 +127,24 @@
 
                           <script type="text/javascript">
                           // <![CDATA[
-                          function phorum_subscription_displaystate() {
-                            if (document.getElementById) {
-                              var f = document.getElementById('subscription_follow');
-                              var d = document.getElementById('subscription_mail_div');
-                              var e = document.getElementById('subscription_mail');
-                              d.style.display  = f.checked ? 'block' : 'none';
-                            }
-                          }
+                              function phorum_subscription_displaystate() {
+                                if (document.getElementById) {
+                                  var f = document.getElementById('subscription_follow');
+                                  var d = document.getElementById('subscription_mail_div');
+                                  var e = document.getElementById('subscription_mail');
+                                  d.style.display  = f.checked ? 'block' : 'none';
+                                }
+                              }
 
-                          // Setup initial display state for subscription options.
-                          phorum_subscription_displaystate();
+                              // Setup initial display state for subscription options.
+                              phorum_subscription_displaystate();
                           // ]]>
                           </script>
                         {/IF}
                     {/IF}
 
                     <input type="checkbox" id="show_signature" name="show_signature" value="1" {IF POSTING->show_signature} checked="checked"{/IF} /> <label for="show_signature"><small>{LANG->AddSig}</small></label><br />
-                    <br/>
+                    <br />
 
                 {/IF}
 
@@ -171,7 +171,7 @@
                 {/IF}
 
                 {IF ATTACHMENTS_FULL}
-                    <strong>{LANG->AttachFull}</strong><br/>
+                    <strong>{LANG->AttachFull}</strong><br />
                 {ELSE}
                     <script type="text/javascript">
                     //<![CDATA[

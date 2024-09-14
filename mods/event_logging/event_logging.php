@@ -14,12 +14,12 @@ define('EVENT_LOGGING', TRUE);
 // The chance (in %) that garbage collection is run on a user's request.
 define('EVENT_LOGGING_GC_SPLAY', 5);
 
-global $PHORUM;
-$PHORUM["MOD_EVENT_LOGGING"]["LOOPLOCK"] = 0;
-$PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"]  = 0;
+$GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["LOOPLOCK"] = 0;
+$GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"]  = 0;
 
-require_once PHORUM_PATH . '/mods/event_logging/db.php';
-require_once PHORUM_PATH . '/mods/event_logging/defaults.php';
+require_once("./mods/event_logging/db.php");
+
+require_once("./mods/event_logging/defaults.php");
 
 function phorum_mod_event_logging_common_pre()
 {
@@ -126,7 +126,6 @@ function event_logging_mask_password($password)
     }
 }
 
-
 // ------------------------------------------------------------------------
 // API functions
 // ------------------------------------------------------------------------
@@ -144,14 +143,12 @@ function event_logging_mask_password($password)
 // if (defined('EVENT_LOGGING')) phorum_mod_event_logging_resume();
 
 function phorum_mod_event_logging_suspend() {
-    global $PHORUM;
-    $PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"] ++;
+    $GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"] ++;
 }
 
 function phorum_mod_event_logging_resume() {
-    global $PHORUM;
-    if ($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"] > 0) {
-        $PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"] --;
+    if ($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"] > 0) {
+        $GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"] --;
     }
 }
 
@@ -170,15 +167,15 @@ function phorum_mod_event_logging_error_handler($errno, $errstr, $file, $line)
     }
 
     // Check for suspended logging.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"])) {
         return;
     }
 
     // Prevention against recursive logging calls.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["LOOPLOCK"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["LOOPLOCK"])) {
         return;
     }
-    $PHORUM["MOD_EVENT_LOGGING"]["LOOPLOCK"]++;
+    $GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["LOOPLOCK"]++;
 
     // Prepare the event log data.
     $loglevel = NULL;
@@ -213,16 +210,15 @@ function phorum_mod_event_logging_error_handler($errno, $errstr, $file, $line)
     // Nothing to do? Then return and let PHP handle the problem
     // (works for PHP5, I don't know what PHP4 does here).
     if ($loglevel === NULL) {
-        $PHORUM["MOD_EVENT_LOGGING"]["LOOPLOCK"]--;
+        $GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["LOOPLOCK"]--;
         return FALSE;
     }
 
     // Create detailed info.
     $details = "$type generated at $file:$line\n";
 
-    // Construct a backtrace and add it to the details info.
-    require_once PHORUM_PATH . '/include/api/error/backtrace.php';
-    $backtrace = phorum_api_error_backtrace(2);
+    // Construct a back trace and add it to the details info.
+    $backtrace = phorum_generate_backtrace(1);
     $details .= $backtrace === NULL ? "" : "\nBack trace:\n\n$backtrace\n";
 
     // Add request info to the details.
@@ -244,7 +240,7 @@ function phorum_mod_event_logging_error_handler($errno, $errstr, $file, $line)
     // those by default.
     if ($source == 'admin' && !$from_module && $loglevel == EVENTLOG_LVL_DEBUG) {
         if ($PHORUM["mod_event_logging"]["do_log_php_notice_ignore_in_admin"]) {
-            $PHORUM["MOD_EVENT_LOGGING"]["LOOPLOCK"]--;
+            $GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["LOOPLOCK"]--;
             return FALSE;
         }
     }
@@ -266,19 +262,18 @@ function phorum_mod_event_logging_error_handler($errno, $errstr, $file, $line)
     // user that the problem was logged.
     if ($loglevel == EVENTLOG_LVL_ALERT)
     {
-        // Clear any buffered output so far.
-        require_once PHORUM_PATH . '/include/api/buffer.php';
-        phorum_api_buffer_clear();
+        // Flush any buffered output so far.
+        phorum_ob_clean();
 
         // Notify the user and exit.
-        print "An error occurred in the application.<br/>" .
-              "The error was logged to the Phorum event log.<br/>";
+        print "An error occurred in the application.<br />" .
+              "The error was logged to the Phorum event log.<br />";
         exit(1);
     }
 
     // Let the normal error handler take over from here
     // (works for PHP5, I don't know what PHP4 does here).
-    $PHORUM["MOD_EVENT_LOGGING"]["LOOPLOCK"]--;
+    $GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["LOOPLOCK"]--;
     return FALSE;
 }
 
@@ -289,19 +284,15 @@ function phorum_mod_event_logging_error_handler($errno, $errstr, $file, $line)
 
 function phorum_mod_event_logging_after_register($data)
 {
-    global $PHORUM;
-
     // Check for suspended logging.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"])) {
         return $data;
     }
 
-    if (!$PHORUM["mod_event_logging"]["do_log_register"])
+    if (!$GLOBALS["PHORUM"]["mod_event_logging"]["do_log_register"])
         return $data;
 
     list ($source, $from_module) = event_logging_find_source(1);
-
-    // display_name not available in this hook as it seems
 
     event_logging_writelog(array(
         "message"   => "User registered for an account: " .
@@ -316,31 +307,27 @@ function phorum_mod_event_logging_after_register($data)
 
 function phorum_mod_event_logging_failed_login($data)
 {
-    global $PHORUM;
-
     // Check for suspended logging.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"])) {
         return $data;
     }
 
-    if (($data["location"] == "forum" && !$PHORUM["mod_event_logging"]["do_log_login_failure_forum"]) ||
-        ($data["location"] == "admin" && !$PHORUM["mod_event_logging"]["do_log_login_failure_admin"])
-       )
+    if (!$GLOBALS["PHORUM"]["mod_event_logging"]["do_log_login_failure"])
         return $data;
 
     // Check if a user can be found for the used username.
     // If we can find a user, then we log the user_id, so the filter by
     // user option in the log viewer will include failed user logins as well.
-    $user = $PHORUM['DB']->user_search('username', $data['username']);
-    $user_id = $user ? $user['user_id'] : NULL;
+    $user_id = phorum_db_user_search('username', $data['username']);
 
     $location = ucfirst($data["location"]);
+    $password = event_logging_mask_password($data["password"]);
     event_logging_writelog(array(
         "source"    => $data["location"] . " login",
         "message"   => "$location login failure for user " .
                        '"' . $data["username"] . '".',
         "details"   => "The user tried to login using the password " .
-                       '"' . $data["password"] . '".',
+                       '"' . $password . '".',
         "user_id"   => $user_id,
         "loglevel"  => EVENTLOG_LVL_WARNING,
         "category"  => EVENTLOG_CAT_SECURITY
@@ -402,27 +389,20 @@ function phorum_mod_event_logging_password_reset($data)
 
 function phorum_mod_event_logging_after_login($data)
 {
-    global $PHORUM;
-
     // Check for suspended logging.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"])) {
         return $data;
     }
 
-    if (!$PHORUM["mod_event_logging"]["do_log_login"])
+    if (!$GLOBALS["PHORUM"]["mod_event_logging"]["do_log_login"])
         return $data;
 
-    $displayname = "";
-
-    if (isset($PHORUM["user"]["username"])) {
-        $username = $PHORUM["user"]["username"];
-
-        if (isset($PHORUM["user"]["display_name"]))
-            $displayname = $PHORUM["user"]["display_name"];
+    if (isset($GLOBALS["PHORUM"]["user"]["username"])) {
+        $username = $GLOBALS["PHORUM"]["user"]["username"];
 
         event_logging_writelog(array(
             "source"    => "forum login",
-            "message"   => "User $displayname (Username: $username) logged in.",
+            "message"   => "User $username logged in.",
             "loglevel"  => EVENTLOG_LVL_INFO,
             "category"  => EVENTLOG_CAT_SECURITY
         ));
@@ -433,27 +413,20 @@ function phorum_mod_event_logging_after_login($data)
 
 function phorum_mod_event_logging_before_logout()
 {
-    global $PHORUM;
-
     // Check for suspended logging.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"])) {
         return;
     }
 
-    if (!$PHORUM["mod_event_logging"]["do_log_logout"])
+    if (!$GLOBALS["PHORUM"]["mod_event_logging"]["do_log_logout"])
         return;
 
-    $displayname = "";
-
-    if (isset($PHORUM["user"]["username"])) {
-        $username = $PHORUM["user"]["username"];
-
-        if (isset($PHORUM["user"]["display_name"]))
-            $displayname = $PHORUM["user"]["display_name"];
+    if (isset($GLOBALS["PHORUM"]["user"]["username"])) {
+        $username = $GLOBALS["PHORUM"]["user"]["username"];
 
         event_logging_writelog(array(
             "source"    => "forum login",
-            "message"   => "User $displayname (Username: $username) logged out.",
+            "message"   => "User $username logged out.",
             "loglevel"  => EVENTLOG_LVL_INFO,
             "category"  => EVENTLOG_CAT_SECURITY
         ));
@@ -462,14 +435,12 @@ function phorum_mod_event_logging_before_logout()
 
 function phorum_mod_event_logging_after_post($data)
 {
-    global $PHORUM;
-
     // Check for suspended logging.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"])) {
         return $data;
     }
 
-    if (!$PHORUM["mod_event_logging"]["do_log_post"])
+    if (!$GLOBALS["PHORUM"]["mod_event_logging"]["do_log_post"])
         return $data;
 
     list ($source, $from_module) = event_logging_find_source(1);
@@ -494,14 +465,14 @@ function phorum_mod_event_logging_after_edit($data)
     global $PHORUM;
 
     // Check for suspended logging.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"])) {
         return $data;
     }
 
     // Check if this is a user or moderator edit.
     // Retrieve the data from the database, since the user_id
     // is not in the $data array.
-    $dbmsg = $PHORUM['DB']->get_message($data["message_id"]);
+    $dbmsg = phorum_db_get_message($data["message_id"]);
     $is_mod_edit = !isset($dbmsg["user_id"]) ||
                    $dbmsg["user_id"] != $PHORUM["user"]["user_id"];
 
@@ -518,7 +489,7 @@ function phorum_mod_event_logging_after_edit($data)
     list ($source, $from_module) = event_logging_find_source(1);
 
     event_logging_writelog(array(
-        "message"    => $prefix . "Message \"{$data["subject"]}\" edited by \"{$PHORUM["user"]["display_name"]} (Username: {$PHORUM["user"]["username"]})\".",
+        "message"    => $prefix . "Message \"{$data["subject"]}\" edited by \"{$GLOBALS["PHORUM"]["user"]["username"]}\".",
         "forum_id"   => $data["forum_id"],
         "thread_id"  => $data["thread"],
         "message_id" => $data["message_id"],
@@ -559,25 +530,22 @@ function phorum_mod_event_logging_pm_sent($message, $recipients)
 
 function phorum_mod_event_logging_database_error($error)
 {
-    global $PHORUM;
-
-    if (!$PHORUM["mod_event_logging"]["do_log_database_error"])
+    if (!$GLOBALS["PHORUM"]["mod_event_logging"]["do_log_database_error"])
         return $error;
 
     // Check for suspended logging.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"])) {
         return $error;
     }
 
     // Prevention against recursive logging calls.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["LOOPLOCK"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["LOOPLOCK"])) {
         return $error;
     }
-    $PHORUM["MOD_EVENT_LOGGING"]["LOOPLOCK"]++;
+    $GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["LOOPLOCK"]++;
 
-    // Construct a backtrace.
-    require_once PHORUM_PATH . '/include/api/error/backtrace.php';
-    $backtrace = phorum_api_error_backtrace(3);
+    // Construct a back trace.
+    $backtrace = phorum_generate_backtrace(3);
 
     list ($source, $from_module) = event_logging_find_source(4);
 
@@ -593,20 +561,18 @@ function phorum_mod_event_logging_database_error($error)
                         : EVENTLOG_CAT_APPLICATION
     ));
 
-    $PHORUM["MOD_EVENT_LOGGING"]["LOOPLOCK"]--;
+    $GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["LOOPLOCK"]--;
 
     return $error;
 }
 
 function phorum_mod_event_logging_before_delete($data)
 {
-    global $PHORUM;
-
-    if (!$PHORUM["mod_event_logging"]["do_log_mod_delete"])
+    if (!$GLOBALS["PHORUM"]["mod_event_logging"]["do_log_mod_delete"])
         return $data;
 
     // Check for suspended logging.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"])) {
         return $data;
     }
 
@@ -634,13 +600,11 @@ function phorum_mod_event_logging_before_delete($data)
 
 function phorum_mod_event_logging_report($data)
 {
-    global $PHORUM;
-
-    if (!$PHORUM["mod_event_logging"]["do_log_report"])
+    if (!$GLOBALS["PHORUM"]["mod_event_logging"]["do_log_report"])
         return $data;
 
     // Check for suspended logging.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"])) {
         return $data;
     }
 
@@ -674,17 +638,15 @@ function phorum_mod_event_logging_report($data)
 
 function phorum_mod_event_logging_move_thread($message_id)
 {
-    global $PHORUM;
-
-    if (!$PHORUM["mod_event_logging"]["do_log_mod_move"])
+    if (!$GLOBALS["PHORUM"]["mod_event_logging"]["do_log_mod_move"])
         return $message_id;
 
     // Check for suspended logging.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"])) {
         return $message_id;
     }
 
-    $dbmsg = $PHORUM['DB']->get_message($message_id, "message_id", TRUE);
+    $dbmsg = phorum_db_get_message($message_id, "message_id", TRUE);
     if ($dbmsg === NULL || !is_array($dbmsg)) return $message_id;
 
     // Update the log entries in which the message id was used.
@@ -713,17 +675,15 @@ function phorum_mod_event_logging_move_thread($message_id)
 
 function phorum_mod_event_logging_close_thread($message_id)
 {
-    global $PHORUM;
-
-    if (!$PHORUM["mod_event_logging"]["do_log_mod_close"])
+    if (!$GLOBALS["PHORUM"]["mod_event_logging"]["do_log_mod_close"])
         return $message_id;
 
     // Check for suspended logging.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"])) {
         return $message_id;
     }
 
-    $dbmsg = $PHORUM['DB']->get_message($message_id, "message_id", TRUE);
+    $dbmsg = phorum_db_get_message($message_id, "message_id", TRUE);
     if ($dbmsg === NULL || !is_array($dbmsg)) return $message_id;
 
     list ($source, $from_module) = event_logging_find_source(1);
@@ -745,17 +705,15 @@ function phorum_mod_event_logging_close_thread($message_id)
 
 function phorum_mod_event_logging_reopen_thread($message_id)
 {
-    global $PHORUM;
-
-    if (!$PHORUM["mod_event_logging"]["do_log_mod_reopen"])
+    if (!$GLOBALS["PHORUM"]["mod_event_logging"]["do_log_mod_reopen"])
         return $message_id;
 
     // Check for suspended logging.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"])) {
         return $message_id;
     }
 
-    $dbmsg = $PHORUM['DB']->get_message($message_id, "message_id", TRUE);
+    $dbmsg = phorum_db_get_message($message_id, "message_id", TRUE);
     if ($dbmsg === NULL || !is_array($dbmsg)) return $message_id;
 
     list ($source, $from_module) = event_logging_find_source(1);
@@ -777,17 +735,15 @@ function phorum_mod_event_logging_reopen_thread($message_id)
 
 function phorum_mod_event_logging_hide_thread($message_id)
 {
-    global $PHORUM;
-
-    if (!$PHORUM["mod_event_logging"]["do_log_mod_hide"])
+    if (!$GLOBALS["PHORUM"]["mod_event_logging"]["do_log_mod_hide"])
         return $message_id;
 
     // Check for suspended logging.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"])) {
         return $message_id;
     }
 
-    $dbmsg = $PHORUM['DB']->get_message($message_id, "message_id", TRUE);
+    $dbmsg = phorum_db_get_message($message_id, "message_id", TRUE);
     if ($dbmsg === NULL || !is_array($dbmsg)) return $message_id;
 
     list ($source, $from_module) = event_logging_find_source(1);
@@ -811,13 +767,11 @@ function phorum_mod_event_logging_hide_thread($message_id)
 
 function phorum_mod_event_logging_after_approve($data)
 {
-    global $PHORUM;
-
-    if (!$PHORUM["mod_event_logging"]["do_log_mod_approve"])
+    if (!$GLOBALS["PHORUM"]["mod_event_logging"]["do_log_mod_approve"])
         return $data;
 
     // Check for suspended logging.
-    if (!empty($PHORUM["MOD_EVENT_LOGGING"]["SUSPEND"])) {
+    if (!empty($GLOBALS["PHORUM"]["MOD_EVENT_LOGGING"]["SUSPEND"])) {
         return $data;
     }
 
@@ -878,6 +832,7 @@ function phorum_mod_event_logging_before_footer()
     }
 }
 
+
 function phorum_mod_event_logging_user_delete($userid) {
     if (!$GLOBALS["PHORUM"]["mod_event_logging"]["do_log_user_delete"])
         return $userid;
@@ -895,5 +850,6 @@ function phorum_mod_event_logging_user_delete($userid) {
 
     return $userid;
 }
+
 
 ?>

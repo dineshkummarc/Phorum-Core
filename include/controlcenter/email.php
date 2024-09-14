@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,13 +15,11 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_CONTROL_CENTER")) return;
-
-require_once PHORUM_PATH.'/include/api/mail.php';
-require_once PHORUM_PATH.'/include/api/ban.php';
+if ( !defined( "PHORUM_CONTROL_CENTER" ) ) return;
+// need this for banlist-checks
+include_once("./include/profile_functions.php");
 
 // email-verification
 if($PHORUM['registration_control']) {
@@ -36,12 +35,12 @@ if ( count( $_POST ) ) {
 
     if ( empty( $_POST["email"] ) ) {
         $error = $PHORUM["DATA"]["LANG"]["ErrRequired"];
-    } elseif (!phorum_api_mail_check_address( $_POST["email"])) {
+    } elseif (!phorum_valid_email( $_POST["email"])) {
         $error = $PHORUM["DATA"]["LANG"]["ErrEmail"];
     } elseif ($PHORUM['user']['email'] != $_POST["email"] && phorum_api_user_search("email", $_POST["email"])) {
         $error = $PHORUM["DATA"]["LANG"]["ErrEmailExists"];
-    } elseif (($banerr = phorum_api_ban_check($_POST["email"], PHORUM_BAD_EMAILS)) !== NULL) {
-        $error = $banerr;
+    } elseif (!phorum_check_ban_lists($_POST["email"], PHORUM_BAD_EMAILS)) {
+        $error = $PHORUM["DATA"]["LANG"]["ErrBannedEmail"];
     } elseif (isset($PHORUM['DATA']['PROFILE']['email_temp_part']) && !empty($_POST['email_verify_code']) && $PHORUM['DATA']['PROFILE']['email_temp_part']."|".$_POST['email_verify_code'] != $PHORUM['DATA']['PROFILE']['email_temp']) {
         $error = $PHORUM['DATA']['LANG']['ErrWrongMailcode'];
     } else {
@@ -66,16 +65,14 @@ if ( count( $_POST ) ) {
             $_POST['email_temp']=$_POST['email']."|".$conf_code;
             // ... send email ... //
             $maildata=array(
-                'mailmessage'   => phorum_api_format_wordwrap($PHORUM['DATA']['LANG']['EmailVerifyBody'], 72),
+                'mailmessage'   => phorum_wordwrap($PHORUM['DATA']['LANG']['EmailVerifyBody'], 72),
                 'mailsubject'   => $PHORUM['DATA']['LANG']['EmailVerifySubject'],
-                # "uname" is for language file backward compatibility
                 'uname'         => $PHORUM['DATA']['PROFILE']['username'],
-                'username'      => $PHORUM['DATA']['PROFILE']['username'],
                 'newmail'       => $_POST['email'],
                 'mailcode'      => $conf_code,
-                'cc_url'        => phorum_api_url(PHORUM_CONTROLCENTER_URL, "panel=" . PHORUM_CC_MAIL)
+                'cc_url'        => phorum_get_url(PHORUM_CONTROLCENTER_URL, "panel=" . PHORUM_CC_MAIL)
             );
-            phorum_api_mail($_POST['email'], $maildata);
+            phorum_email_user(array($_POST['email']),$maildata);
 
             // Remember this for the template.
             $email_temp_part = $_POST['email'];
@@ -111,6 +108,9 @@ if(phorum_api_user_check_access(PHORUM_USER_ALLOW_MODERATE_MESSAGES, PHORUM_ACCE
 }
 
 $PHORUM["DATA"]["PROFILE"]["EMAIL_CONFIRM"]=$PHORUM["registration_control"];
+
+
+$PHORUM["DATA"]["HEADING"] = $PHORUM["DATA"]["LANG"]["EditMailsettings"];
 
 $PHORUM['DATA']['PROFILE']['MAILSETTINGS'] = 1;
 $template = "cc_usersettings";

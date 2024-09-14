@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,11 +15,11 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if(!defined("PHORUM_ADMIN")) return;
+    if(!defined("PHORUM_ADMIN")) return;
 
-phorum_api_redirect(PHORUM_INDEX_URL);
+    phorum_redirect_by_url(phorum_get_url(PHORUM_INDEX_URL));
+    exit();
 
 ?>

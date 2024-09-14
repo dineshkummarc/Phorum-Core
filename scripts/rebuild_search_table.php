@@ -16,10 +16,11 @@ if ('cli' != php_sapi_name()) {
 
 define("PHORUM_ADMIN", 1);
 
-require_once(dirname(__FILE__).'/../include/api.php');
+chdir(dirname(__FILE__) . "/..");
+require_once './common.php';
 
 // Make sure that the output is not buffered.
-phorum_api_buffer_clear();
+phorum_ob_clean();
 
 if (! ini_get('safe_mode')) {
     set_time_limit(0);
@@ -28,7 +29,7 @@ if (! ini_get('safe_mode')) {
 
 echo "\nRebuilding search-table ...\n";
 
-$PHORUM['DB']->rebuild_search_data();
+phorum_db_rebuild_search_data();
 
 echo "If no errors were logged above,\n" .
      "then the search table was successfully rebuilt.\n\n";

@@ -4,6 +4,7 @@
         <tr>
             <th align="left" width="20">
                 <script type="text/javascript">
+                // <![CDATA[
                     function checkAll() {
                         var lf=document.getElementById('phorum-pm-list');
                         for (var i=0;i<lf.elements.length;i++) {
@@ -13,7 +14,8 @@
                             }
                         }
                     }
-                    document.write ( '<input type="checkbox" id="toggle" name="toggle" onclick="checkAll()" />' );
+                    document.write('<input type="checkbox" id="toggle" name="toggle" onclick="checkAll()" \/>');
+                // ]]>
                 </script>
                 <noscript>&nbsp;</noscript>
             </th>
@@ -49,10 +51,7 @@
         <input type="submit" name="move" value="{LANG->PMMoveToFolder}" />
     {/IF}
     <input type="submit" name="delete" value="{LANG->Delete}" onclick="return confirm('<?php echo addslashes($PHORUM['DATA']['LANG']['AreYouSure'])?>')" />
-
 {ELSE}
-
     <div class="generic">{LANG->PMFolderIsEmpty}</div>
-
 {/IF}
 <!-- END TEMPLATE pm_list_incoming.tpl -->

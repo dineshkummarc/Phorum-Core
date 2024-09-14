@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,19 +15,16 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_CONTROL_CENTER")) return;
-
-require_once PHORUM_PATH.'/include/api/mail.php';
+if(!defined("PHORUM_CONTROL_CENTER")) return;
 
 if (!$PHORUM["DATA"]["USER_MODERATOR"]) {
-    phorum_api_redirect(PHORUM_CONTROLCENTER_URL);
+    phorum_redirect_by_url(phorum_get_url(PHORUM_CONTROLCENTER_URL));
     exit();
 }
 
-$users=$PHORUM['DB']->user_get_unapproved();
+$users=phorum_db_user_get_unapproved();
 
 if(!empty($_POST["user_ids"])){
 
@@ -52,8 +50,8 @@ if(!empty($_POST["user_ids"])){
                 $userdata["active"]=PHORUM_USER_ACTIVE;
                 // send reg approved message
                 $maildata["mailsubject"]=$PHORUM["DATA"]["LANG"]["RegApprovedSubject"];
-                $maildata["mailmessage"]=phorum_api_format_wordwrap($PHORUM["DATA"]["LANG"]["RegApprovedEmailBody"], 72);
-                phorum_api_mail(array($user["email"]), $maildata);
+                $maildata["mailmessage"]=phorum_wordwrap($PHORUM["DATA"]["LANG"]["RegApprovedEmailBody"], 72);
+                phorum_email_user(array($user["email"]), $maildata);
 
             }
         }
@@ -71,20 +69,22 @@ if(empty($users)){
 } else {
 
     // get a fresh list to update any changes
-    $users=$PHORUM['DB']->user_get_unapproved();
+    $users=phorum_db_user_get_unapproved();
 
     // XSS prevention.
     foreach ($users as $id => $user) {
-        $users[$id]["username"] = phorum_api_format_htmlspecialchars($user["username"]);
-        $users[$id]["email"] = phorum_api_format_htmlspecialchars($user["email"]);
+        $users[$id]["username"] = htmlspecialchars($user["username"], ENT_QUOTES, $PHORUM["DATA"]["HCHARSET"]);
+        $users[$id]["email"] = htmlspecialchars($user["email"], ENT_QUOTES, $PHORUM["DATA"]["HCHARSET"]);
     }
 
     $PHORUM["DATA"]["USERS"]=$users;
 
-    $PHORUM["DATA"]["ACTION"]=phorum_api_url( PHORUM_CONTROLCENTER_ACTION_URL );
+    $PHORUM["DATA"]["ACTION"]=phorum_get_url( PHORUM_CONTROLCENTER_ACTION_URL );
     $PHORUM["DATA"]["FORUM_ID"]=$PHORUM["forum_id"];
 
     $template = "cc_users";
 }
+
+$PHORUM["DATA"]["HEADING"] = $PHORUM["DATA"]["LANG"]["UnapprovedUsers"];
 
 ?>

@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,10 +15,9 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_CONTROL_CENTER")) return;
+if(!defined("PHORUM_CONTROL_CENTER")) return;
 
 // if we have a request to join a group, try and do it
 if (isset($_POST["joingroup"]) && $_POST["joingroup"] > 0)
@@ -26,7 +26,7 @@ if (isset($_POST["joingroup"]) && $_POST["joingroup"] > 0)
     $usergroups = phorum_api_user_check_group_access(PHORUM_USER_GROUP_SUSPENDED, PHORUM_ACCESS_LIST);
 
     // Get all available groups.
-    $group = $PHORUM['DB']->get_groups($_POST["joingroup"]);
+    $group = phorum_db_get_groups($_POST["joingroup"]);
 
     // The user can't already be a member of the group,
     // and the group must allow join requests.
@@ -55,7 +55,9 @@ if (isset($_POST["joingroup"]) && $_POST["joingroup"] > 0)
 $template = "cc_groups";
 $PHORUM['DATA']['Groups'] = phorum_readable_groups();
 $PHORUM['DATA']['JOINGROUP'] = phorum_joinable_groups();
-$PHORUM["DATA"]["GROUP"]["url"] = phorum_api_url(PHORUM_CONTROLCENTER_ACTION_URL, "panel=" . PHORUM_CC_GROUP_MEMBERSHIP);
+$PHORUM["DATA"]["GROUP"]["url"] = phorum_get_url(PHORUM_CONTROLCENTER_ACTION_URL, "panel=" . PHORUM_CC_GROUP_MEMBERSHIP);
+
+$PHORUM["DATA"]["HEADING"] = $PHORUM["DATA"]["LANG"]["ViewJoinGroups"];
 
 /* --------------------------------------------------------------- */
 
@@ -96,7 +98,7 @@ function phorum_joinable_groups()
 {
     global $PHORUM;
     $joinablegroups = array();
-    $groups = $PHORUM['DB']->get_groups();
+    $groups = phorum_db_get_groups();
     $memberof = phorum_api_user_check_group_access(PHORUM_USER_GROUP_SUSPENDED, PHORUM_ACCESS_LIST);
     foreach ($groups as $group){
         if (!isset($memberof[$group["group_id"]])){

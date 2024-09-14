@@ -1,7 +1,8 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//   Copyright (C) 2016  Phorum Development Team
+//   Copyright (C) 2016  Phorum Development Team                              //
 //   http://www.phorum.org                                                    //
 //                                                                            //
 //   This program is free software. You can redistribute it and/or modify     //
@@ -14,44 +15,70 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
-
 define('phorum_page','list');
 
-require_once './common.php';
+include_once("./common.php");
+include_once("./include/format_functions.php");
+//include_once('./include/timing.php');
 
-require_once PHORUM_PATH.'/include/api/thread.php';
-require_once PHORUM_PATH.'/include/api/format/messages.php';
+//timing_start();
 
 // set all our common URL's
 phorum_build_common_urls();
 
-if (!phorum_check_read_common()) {
+if(!phorum_check_read_common()) {
   return;
 }
 
-// No forum_id in the request.
-if (empty($PHORUM["forum_id"])){
-    phorum_api_redirect(PHORUM_INDEX_URL);
+
+if(empty($PHORUM["forum_id"])){
+    $dest_url = phorum_get_url(PHORUM_INDEX_URL);
+    phorum_redirect_by_url($dest_url);
+    exit();
 }
 
-// Somehow we got to a folder in list.php.
-if ($PHORUM["folder_flag"]){
-    phorum_api_redirect(PHORUM_INDEX_URL, $PHORUM["forum_id"]);
+// somehow we got to a folder in list.php
+if($PHORUM["folder_flag"]){
+    $dest_url = phorum_get_url(PHORUM_INDEX_URL, $PHORUM["forum_id"]);
+    phorum_redirect_by_url($dest_url);
+    exit();
 }
 
-// Handle "mark read" clicks.
-if (!empty($PHORUM["args"][1]) && $PHORUM["args"][1] == 'markread' &&
-    $PHORUM['user']['user_id']) {
+$newflagkey = $PHORUM["forum_id"]."-".$PHORUM['user']['user_id'];
 
-    // Mark all posts in the current forum as read.
-    phorum_api_newflags_markread($PHORUM['forum_id'], PHORUM_MARKREAD_FORUMS);
+// check for markread
+if (!empty($PHORUM["args"][1]) && $PHORUM["args"][1] == 'markread' && $PHORUM["DATA"]["LOGGEDIN"]){
+    // setting all posts read
+    unset($PHORUM['user']['newinfo']);
+    phorum_db_newflag_allread();
+    if($PHORUM['cache_newflags']) {
+        phorum_cache_remove('newflags',$newflagkey);
+        phorum_cache_remove('newflags_index',$newflagkey);
+    }
 
-    // Redirect to a fresh list of the current folder without the mark read
-    // parameters in the URL. This way we prevent users from bookmarking
-    // the mark read URL.
-    phorum_api_redirect(PHORUM_LIST_URL);
+
+    // redirect to a fresh list without markread in url
+    $dest_url = phorum_get_url(PHORUM_LIST_URL);
+    phorum_redirect_by_url($dest_url);
+    exit();
+
+}
+
+if ($PHORUM["DATA"]["LOGGEDIN"]) { // reading newflags in
+
+    $PHORUM['user']['newinfo'] = null;
+
+    if($PHORUM['cache_newflags']) {
+        $PHORUM['user']['newinfo']=phorum_cache_get('newflags',$newflagkey,$PHORUM['cache_version']);
+    }
+
+    if($PHORUM['user']['newinfo'] == null) {
+        $PHORUM['user']['newinfo']=phorum_db_newflag_get_flags();
+        if($PHORUM['cache_newflags']) {
+            phorum_cache_put('newflags',$newflagkey,$PHORUM['user']['newinfo'],86400,$PHORUM['cache_version']);
+        }
+    }
 }
 
 // figure out what page we are on
@@ -62,11 +89,12 @@ if (empty($PHORUM["args"]["page"]) || !is_numeric($PHORUM["args"]["page"]) || $P
 }
 $offset=$page-1;
 
-// Check if the current user is allowed to moderate messages.
+// check the moderation-settings
 $PHORUM["DATA"]["MODERATOR"] = phorum_api_user_check_access(PHORUM_USER_ALLOW_MODERATE_MESSAGES);
 
-// Find out how many forums this user can moderate. If the user can moderate
-// more than one forum, then we will present the move message moderation link.
+// Find out how many forums this user can moderate.
+// If the user can moderate more than one forum, then
+// present the move message moderation link.
 if ($PHORUM["DATA"]["MODERATOR"]) {
     $modforums = phorum_api_user_check_access(
         PHORUM_USER_ALLOW_MODERATE_MESSAGES,
@@ -75,8 +103,7 @@ if ($PHORUM["DATA"]["MODERATOR"]) {
     $build_move_url = count($modforums) >= 2;
 }
 
-// Determine what list length to use.
-if($PHORUM['threaded_list']) {
+if($PHORUM['threaded_list']) { // make it simpler :)
     $PHORUM["list_length"] = $PHORUM['list_length_threaded'];
 } else {
     $PHORUM["list_length"] = $PHORUM['list_length_flat'];
@@ -91,115 +118,93 @@ $pages=ceil(($PHORUM["thread_count"] - $PHORUM['sticky_count']) / $PHORUM["list_
 // In that case, simply use one page.
 if ($pages == 0) $pages = 1;
 
-$pages_shown = (isset($PHORUM["TMP"]["list_pages_shown"]))
-             ? $PHORUM["TMP"]["list_pages_shown"] : 11;
+$pages_shown = (isset($PHORUM["TMP"]["list_pages_shown"])) ? $PHORUM["TMP"]["list_pages_shown"] : 11;
 
 // first $pages_shown pages
-if ($page - floor($pages_shown/2) <= 0  || $page < $pages_shown) {
+if($page - floor($pages_shown/2) <= 0  || $page < $pages_shown){
     $page_start=1;
+
 // last $pages_shown pages
 } elseif($page > $pages - floor($pages_shown/2)) {
     $page_start = $pages - $pages_shown + 1;
+
 // all others
 } else {
     $page_start = $page - floor($pages_shown/2);
 }
 
-$pageno = 1;
+$pageno=1;
 
-$list_page_url_template = phorum_api_url(PHORUM_LIST_URL, '%forum_id%', 'page=%page_num%');
+$list_page_url_template = phorum_get_url(PHORUM_LIST_URL, '%forum_id%', 'page=%page_num%');
 
-for ($x=0;$x<$pages_shown && $x<$pages;$x++) {
+for($x=0;$x<$pages_shown && $x<$pages;$x++){
     $pageno=$x+$page_start;
     $PHORUM["DATA"]["PAGES"][] = array(
-    "pageno" => $pageno,
-    "url"    => str_replace(
-                    array('%forum_id%', '%page_num%'),
-                    array($PHORUM["forum_id"], $pageno),
-                    $list_page_url_template
-                )
+    "pageno"=>$pageno,
+    "url"=>str_replace(array('%forum_id%','%page_num%'),array($PHORUM["forum_id"],$pageno),$list_page_url_template),
     );
 }
 
 
 $PHORUM["DATA"]["CURRENTPAGE"]=$page;
 $PHORUM["DATA"]["TOTALPAGES"]=$pages;
-$PHORUM["DATA"]["URL"]["PAGING_TEMPLATE"]=str_replace(
-    '%forum_id%',$PHORUM["forum_id"],$list_page_url_template
-);
+$PHORUM["DATA"]["URL"]["PAGING_TEMPLATE"]=str_replace('%forum_id%',$PHORUM["forum_id"],$list_page_url_template);
 
 
 if($page_start>1){
-    $PHORUM["DATA"]["URL"]["FIRSTPAGE"]=str_replace(
-        array('%forum_id%','%page_num%'),
-        array($PHORUM["forum_id"],'1'),
-        $list_page_url_template
-    );
+    $PHORUM["DATA"]["URL"]["FIRSTPAGE"]=str_replace(array('%forum_id%','%page_num%'),array($PHORUM["forum_id"],'1'),$list_page_url_template);
 }
 
 if($pageno<$pages){
-    $PHORUM["DATA"]["URL"]["LASTPAGE"]=str_replace(
-        array('%forum_id%','%page_num%'),
-        array($PHORUM["forum_id"],$pages),
-        $list_page_url_template
-    );
+    $PHORUM["DATA"]["URL"]["LASTPAGE"]=str_replace(array('%forum_id%','%page_num%'),array($PHORUM["forum_id"],$pages),$list_page_url_template);
 }
 
 if($pages>$page){
     $nextpage=$page+1;
-    $PHORUM["DATA"]["URL"]["NEXTPAGE"]=str_replace(
-        array('%forum_id%','%page_num%'),
-        array($PHORUM["forum_id"],$nextpage),
-        $list_page_url_template
-    );
-    $PHORUM["DATA"]["NEXTPAGE"] = $nextpage;
+    $PHORUM["DATA"]["URL"]["NEXTPAGE"]=str_replace(array('%forum_id%','%page_num%'),array($PHORUM["forum_id"],$nextpage),$list_page_url_template);
 }
-
-if ($page>1)
-{
+if($page>1){
     $prevpage=$page-1;
-    $PHORUM["DATA"]["URL"]["PREVPAGE"]=str_replace(
-        array('%forum_id%','%page_num%'),
-        array($PHORUM["forum_id"],$prevpage),
-        $list_page_url_template
-    );
-    $PHORUM["DATA"]["PREVPAGE"] = $prevpage;
+    $PHORUM["DATA"]["URL"]["PREVPAGE"]=str_replace(array('%forum_id%','%page_num%'),array($PHORUM["forum_id"],$prevpage),$list_page_url_template);
 }
 
 $min_id=0;
 
 $rows = NULL;
 $bodies_in_list = isset($PHORUM['TMP']['bodies_in_list']) && $PHORUM['TMP']['bodies_in_list'];
-
-// always init cache key
-$cache_key = $PHORUM['forum_id']."-".$PHORUM['cache_version']."-".$page."-";
-$cache_key.= $PHORUM['threaded_list']."-".$PHORUM['threaded_read']."-".$PHORUM["language"];
-$cache_key.= "-".$PHORUM["count_views"]."-".($bodies_in_list?"1":"0")."-".$PHORUM['float_to_top'];
-$cache_key.= "-".$PHORUM['user']['tz_offset'];
-
 if($PHORUM['cache_messages'] &&
    (!$PHORUM['DATA']['LOGGEDIN'] || $PHORUM['use_cookies']) &&
    !$PHORUM['count_views']) {
-    $rows = phorum_api_cache_get('message_list',$cache_key);
+    $cache_key = $PHORUM['forum_id']."-".$PHORUM['cache_version']."-".$page."-";
+    $cache_key.= $PHORUM['threaded_list']."-".$PHORUM['threaded_read']."-".$PHORUM["language"];
+    $cache_key.= "-".$PHORUM["count_views"]."-".($bodies_in_list?"1":"0")."-".$PHORUM['float_to_top'];
+    $cache_key.= "-".$PHORUM['user']['tz_offset'];
+    $rows = phorum_cache_get('message_list',$cache_key);
 }
 
-if($rows == null)
-{
+if($rows == null) {
+
+
+    //timing_mark('before db');
     // Get the threads
     $rows = array();
 
     // get the thread set started
-    $rows = $PHORUM['DB']->get_thread_list($offset, $bodies_in_list);
+    $rows = phorum_db_get_thread_list($offset, $bodies_in_list);
+
+    //timing_mark('after db');
 
     // redirect if invalid page
     if(count($rows) < 1 && $offset > 0){
-        phorum_api_redirect(PHORUM_LIST_URL);
+        $dest_url = phorum_get_url(PHORUM_LIST_URL);
+        phorum_redirect_by_url($dest_url);
+        exit();
     }
 
     if ($PHORUM["threaded_list"]){
 
         // prepare needed url-templates
-        $read_url_template = phorum_api_url(PHORUM_READ_URL, '%thread_id%','%message_id%');
+        $read_url_template = phorum_get_url(PHORUM_READ_URL, '%thread_id%','%message_id%');
 
         // loop through and read all the data in.
         foreach($rows as $key => $row){
@@ -213,7 +218,7 @@ if($rows == null)
             }
 
             $rows[$key]["raw_datestamp"] = $row["datestamp"];
-            $rows[$key]["datestamp"] = phorum_api_format_date($PHORUM["short_date_time"], $row["datestamp"]);
+            $rows[$key]["datestamp"] = phorum_date($PHORUM["short_date_time"], $row["datestamp"]);
 
             $rows[$key]["URL"]["READ"] = str_replace(array('%thread_id%','%message_id%'),
                                                      array($row['thread'],$row['message_id']),
@@ -228,16 +233,18 @@ if($rows == null)
             $rows[$key]["new"] = "";
 
         }
+        // don't move this up.  We want it to be conditional.
+        include_once("./include/thread_sort.php");
 
-        $rows = phorum_api_thread_sort($rows);
+        $rows = phorum_sort_threads($rows);
 
     } else {
 
-        $read_url_template        = phorum_api_url(PHORUM_READ_URL, '%thread_id%');
-        $newpost_url_template     = phorum_api_url(PHORUM_READ_URL, '%thread_id%','gotonewpost');
-        $read_page_url_template   = phorum_api_url(PHORUM_READ_URL, '%thread_id%','page=%page_num%');
-        $recent_page_url_template = phorum_api_url(PHORUM_READ_URL, '%thread_id%','%message_id%','page=%page_num%');
-        $recent_url_template      = phorum_api_url(PHORUM_READ_URL, '%thread_id%','%message_id%');
+        $read_url_template        = phorum_get_url(PHORUM_READ_URL, '%thread_id%');
+        $newpost_url_template     = phorum_get_url(PHORUM_READ_URL, '%thread_id%','gotonewpost');
+        $read_page_url_template   = phorum_get_url(PHORUM_READ_URL, '%thread_id%','page=%page_num%');
+        $recent_page_url_template = phorum_get_url(PHORUM_READ_URL, '%thread_id%','%message_id%','page=%page_num%');
+        $recent_url_template      = phorum_get_url(PHORUM_READ_URL, '%thread_id%','%message_id%');
 
         // loop through and read all the data in.
         foreach($rows as $key => $row){
@@ -245,8 +252,8 @@ if($rows == null)
             $rows[$key]["raw_lastpost"]   = $row["modifystamp"];
             $rows[$key]["raw_datestamp"]  = $row["datestamp"];
 
-            $rows[$key]["lastpost"]       = phorum_api_format_date($PHORUM["short_date_time"], $row["modifystamp"]);
-            $rows[$key]["datestamp"]      = phorum_api_format_date($PHORUM["short_date_time"], $row["datestamp"]);
+            $rows[$key]["lastpost"]       = phorum_date($PHORUM["short_date_time"], $row["modifystamp"]);
+            $rows[$key]["datestamp"]      = phorum_date($PHORUM["short_date_time"], $row["datestamp"]);
 
             $rows[$key]["URL"]["READ"]    = str_replace('%thread_id%',$row['thread'],$read_url_template);
             $rows[$key]["URL"]["NEWPOST"] = str_replace('%thread_id%',$row['thread'],$newpost_url_template);
@@ -368,46 +375,60 @@ if($rows == null)
     if($PHORUM['cache_messages'] &&
        (!$PHORUM['DATA']['LOGGEDIN'] || $PHORUM['use_cookies']) &&
        !$PHORUM['count_views']) {
-        phorum_api_cache_put('message_list',$cache_key,$rows);
+        phorum_cache_put('message_list',$cache_key,$rows);
     }
 }
 
-if ($PHORUM["count_views"] == 2) { // viewcount as column
-    $PHORUM["DATA"]["VIEWCOUNT_COLUMN"] = true;
+if($PHORUM["count_views"] == 2) { // viewcount as column
+    $PHORUM["DATA"]["VIEWCOUNT_COLUMN"]=true;
 }
+//timing_mark('after preparation');
 
-if ($PHORUM['DATA']['LOGGEDIN'])
-{
+if($PHORUM['DATA']['LOGGEDIN']) {
+
     // used later if user is moderator
-    if ($PHORUM["DATA"]["MODERATOR"])
-    {
-        $delete_url_template        = phorum_api_url(PHORUM_MODERATION_URL, PHORUM_DELETE_MESSAGE, '%message_id%', 'ref_message_id=%message_id%');
-        $delete_thread_url_template = phorum_api_url(PHORUM_MODERATION_URL, PHORUM_DELETE_TREE, '%message_id%', 'ref_message_id=%message_id%');
-        $move_thread_url_template   = phorum_api_url(PHORUM_MODERATION_URL, PHORUM_MOVE_THREAD, '%message_id%', 'ref_message_id=%message_id%');
-        $merge_thread_url_template  = phorum_api_url(PHORUM_MODERATION_URL, PHORUM_MERGE_THREAD, '%message_id%', 'ref_message_id=%message_id%');
+    if($PHORUM["DATA"]["MODERATOR"]){
+        $delete_url_template        = phorum_get_url(PHORUM_MODERATION_URL, PHORUM_DELETE_MESSAGE, '%message_id%');
+        $delete_thread_url_template = phorum_get_url(PHORUM_MODERATION_URL, PHORUM_DELETE_TREE, '%message_id%');
+        $move_thread_url_template   = phorum_get_url(PHORUM_MODERATION_URL, PHORUM_MOVE_THREAD, '%message_id%');
+        $merge_thread_url_template  = phorum_get_url(PHORUM_MODERATION_URL, PHORUM_MERGE_THREAD, '%message_id%');
         if(isset($row['pages_moderators'])) {
-            $recent_page_url_template = phorum_api_url(PHORUM_READ_URL, '%thread_id%','%message_id%', 'ref_message_id=%message_id%', 'page=%page_num%');
-            $recent_url_template      = phorum_api_url(PHORUM_READ_URL, '%thread_id%','%message_id%', 'ref_message_id=%message_id%');
+            $recent_page_url_template = phorum_get_url(PHORUM_READ_URL, '%thread_id%','%message_id%','page=%page_num%');
+            $recent_url_template      = phorum_get_url(PHORUM_READ_URL, '%thread_id%','%message_id%');
         }
     }
+    $mark_thread_read_url_template = phorum_get_url(PHORUM_READ_URL, '%thread_id%', "markthreadread", "list");
 
-    $mark_thread_read_url_template = phorum_api_url(PHORUM_READ_URL, '%thread_id%', "markthreadread", "list");
+    // the stuff needed by user
+    foreach($rows as $key => $row){
+        // Newflag for collapsed flat view or for sticky threads. For these,
+        // we only show the information for the thread starter. But we have
+        // to go through all the messages in the thread to see if any of
+        // them is new.
+        if (empty($row['moved']) && (!$PHORUM['threaded_list'] || $rows[$key]['sort'] == PHORUM_SORT_STICKY) &&
+            isset($row['meta']['message_ids']) && is_array($row['meta']['message_ids'])) {
 
-    // Add newflags to the messages for authenticated users.
-    if ($PHORUM['user']['user_id'])
-    {
-        $message_type = $PHORUM['threaded_list']
-              ? PHORUM_NEWFLAGS_BY_MESSAGE_EXSTICKY
-              : PHORUM_NEWFLAGS_BY_THREAD;
-        $rows = phorum_api_newflags_apply_to_messages($rows, $message_type);
-    }
+            foreach ($row['meta']['message_ids'] as $cur_id) {
+                if(!isset($PHORUM['user']['newinfo'][$cur_id]) && $cur_id > $PHORUM['user']['newinfo']['min_id']) {
+                    $rows[$key]["new"] = $PHORUM["DATA"]["LANG"]["newflag"];
+                    $rows[$key]["URL"]["MARKTHREADREAD"] = str_replace('%thread_id%',$row['thread'],$mark_thread_read_url_template);
+                    break;
+                }
+                // for users without min_id
+                if($min_id == 0 || $min_id > $cur_id) $min_id = $cur_id;
+            }
+        }
+        // For other views, we have a line for each message. So here
+        // we only have to look at the message itself to decide whether
+        // it's new or not.
+        else {
+            if (empty($row['moved']) && !isset($PHORUM['user']['newinfo'][$row['message_id']]) && $row['message_id'] > $PHORUM['user']['newinfo']['min_id']) {
+                $rows[$key]["new"]=$PHORUM["DATA"]["LANG"]["newflag"];
+                $rows[$key]["URL"]["MARKTHREADREAD"] = str_replace('%thread_id%',$row['thread'],$mark_thread_read_url_template);
+            }
 
-    foreach ($rows as $key => $row)
-    {
-        if (isset($row['new'])) {
-            $rows[$key]["URL"]["MARKTHREADREAD"] = str_replace(
-                '%thread_id%', $row['thread'], $mark_thread_read_url_template
-            );
+            // for users without min_id
+            if($min_id == 0 || $min_id > $row['message_id']) $min_id = $row['message_id'];
         }
 
         if($PHORUM["DATA"]["MODERATOR"]){
@@ -443,19 +464,22 @@ if ($PHORUM['DATA']['LOGGEDIN'])
                 }
             }
         }
+
     }
+
 }
 
 // run list mods
 if (isset($PHORUM["hooks"]["list"]))
-    $rows = phorum_api_hook("list", $rows);
+    $rows = phorum_hook("list", $rows);
 
 // if we retrieve the body too we need to setup some more variables for
 // the messages to make it a little more similar to the view in read.php
 if ($bodies_in_list)
 {
+
     if($PHORUM["max_attachments"]>0) {
-        $attachment_url_template = phorum_api_url(PHORUM_FILE_URL, 'file=%file_id%', 'filename=%file_name%');
+        $attachment_url_template = phorum_get_url(PHORUM_FILE_URL, 'file=%file_id%', 'filename=%file_name%');
     }
     foreach ($rows as $id => $row) {
 
@@ -488,7 +512,7 @@ if ($bodies_in_list)
         // add the edited-message to a post if its edited
         if(isset($row['meta']['edit_count']) && $row['meta']['edit_count'] > 0) {
             $editmessage = str_replace ("%count%", $row['meta']['edit_count'], $PHORUM["DATA"]["LANG"]["EditedMessage"]);
-            $editmessage = str_replace ("%lastedit%", phorum_api_format_date($PHORUM["short_date_time"],$row['meta']['edit_date']),  $editmessage);
+            $editmessage = str_replace ("%lastedit%", phorum_date($PHORUM["short_date_time"],$row['meta']['edit_date']),  $editmessage);
             $editmessage = str_replace ("%lastuser%", $row['meta']['edit_username'],  $editmessage);
             $row["body"].="\n\n\n\n$editmessage";
         }
@@ -499,8 +523,8 @@ if ($bodies_in_list)
             $row["attachments"]=$row["meta"]["attachments"];
             // unset($row["meta"]["attachments"]);
             foreach($row["attachments"] as $key=>$file){
-                $row["attachments"][$key]["size"]=phorum_api_format_filesize($file["size"]);
-                $row["attachments"][$key]["name"]=phorum_api_format_htmlspecialchars($file['name']);
+                $row["attachments"][$key]["size"]=phorum_filesize($file["size"]);
+                $row["attachments"][$key]["name"]=htmlspecialchars($file['name'], ENT_COMPAT, $PHORUM["DATA"]["HCHARSET"]);
                 $row["attachments"][$key]["url"] =str_replace(array('%file_id%','%file_name%'),array($file['file_id'],urlencode($file['name'])),$attachment_url_template);
             }
         }
@@ -518,16 +542,18 @@ $recent_author_spec = array(
 );
 
 // format messages
-$rows = phorum_api_format_messages($rows, array($recent_author_spec));
+$rows = phorum_format_messages($rows, array($recent_author_spec));
+
+//timing_mark('after formatting');
 
 // set up the data
 $PHORUM["DATA"]["MESSAGES"] = $rows;
 
 if ($PHORUM["DATA"]["LOGGEDIN"]) {
-    $PHORUM["DATA"]["URL"]["MARK_READ"] = phorum_api_url(PHORUM_LIST_URL, $PHORUM["forum_id"], "markread");
+    $PHORUM["DATA"]["URL"]["MARK_READ"] = phorum_get_url(PHORUM_LIST_URL, $PHORUM["forum_id"], "markread");
 }
 if($PHORUM["DATA"]["MODERATOR"]) {
-   $PHORUM["DATA"]["URL"]["UNAPPROVED"] = phorum_api_url(PHORUM_CONTROLCENTER_URL, "panel=messages");
+   $PHORUM["DATA"]["URL"]["UNAPPROVED"] = phorum_get_url(PHORUM_CONTROLCENTER_URL, "panel=messages");
 }
 
 // add feed url
@@ -535,17 +561,29 @@ if (isset($PHORUM['use_rss']) && $PHORUM['use_rss'])
 {
     $PHORUM['DATA']['FEEDS'] = array(
         array(
-            'URL' => phorum_api_url(PHORUM_FEED_URL, $PHORUM['forum_id'], 'type='.$PHORUM['default_feed']),
+            'URL' => phorum_get_url(PHORUM_FEED_URL, $PHORUM['forum_id'], 'type='.$PHORUM['default_feed']),
             'TITLE' => $PHORUM['DATA']['FEED'] . ' ('. strtolower($PHORUM['DATA']['LANG']['Threads']) . ')'
         ),
         array(
-            "URL" => phorum_api_url(PHORUM_FEED_URL, $PHORUM['forum_id'], 'replies=1', 'type='.$PHORUM['default_feed']),
+            "URL" => phorum_get_url(PHORUM_FEED_URL, $PHORUM['forum_id'], 'replies=1', 'type='.$PHORUM['default_feed']),
             "TITLE" => $PHORUM['DATA']['FEED'] . ' (' . strtolower($PHORUM['DATA']['LANG']['Threads'].' + '.$PHORUM['DATA']['LANG']['replies']) . ')'
         )
     );
 
-    $PHORUM["DATA"]["URL"]["FEED"] = phorum_api_url(PHORUM_FEED_URL, $PHORUM['forum_id'], 'replies=1', 'type='.$PHORUM['default_feed']);
+    $PHORUM["DATA"]["URL"]["FEED"] = phorum_get_url(PHORUM_FEED_URL, $PHORUM['forum_id'], 'replies=1', 'type='.$PHORUM['default_feed']);
 
+}
+
+// updating new-info for first visit (last message on first page is first new)
+if ($PHORUM["DATA"]["LOGGEDIN"] && $PHORUM['user']['newinfo']['min_id'] == 0 && !isset($PHORUM['user']['newinfo'][$min_id]) && $min_id != 0){
+    // setting it as min-id
+    // set it -1 as the comparison is "post newer than min_id"
+    $min_id--;
+    phorum_db_newflag_add_read($min_id);
+    if($PHORUM['cache_newflags']) {
+        phorum_cache_remove('newflags',$newflagkey);
+        phorum_cache_remove('newflags_index',$newflagkey);
+    }
 }
 
 // include the correct template
@@ -555,6 +593,9 @@ if ($PHORUM["threaded_list"]){
     $template = "list";
 }
 
-phorum_api_output($template);
+phorum_output($template);
+
+//timing_mark('end');
+//timing_print();
 
 ?>

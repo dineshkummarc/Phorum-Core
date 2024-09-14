@@ -4,6 +4,8 @@
   <div align="center" class="PhorumNavBlock PhorumNarrowBlock" style="text-align: left;">
     <span class="PhorumNavHeading">{LANG->Goto}:</span>&nbsp;{IF URL->INDEX}<a class="PhorumNavLink" href="{URL->INDEX}">{LANG->ForumList}</a>&bull;{/IF}{IF URL->LIST}<a class="PhorumNavLink" href="{URL->LIST}">{LANG->MessageList}</a>&bull;{/IF}<a class="PhorumNavLink" href="{URL->SEARCH}">{LANG->Search}</a>
   </div>
+  <form action="{URL->ACTION}" method="post" style="display: inline;">
+    {POST_VARS}
     <div class="PhorumStdBlockHeader PhorumNarrowBlock PhorumHeaderText" style="text-align: left;">{LANG->LoginTitle}</div>
     <div align="center" class="PhorumStdBlock PhorumNarrowBlock">
       {IF LOGGEDIN}
@@ -11,8 +13,6 @@
           <div class="PhorumFloatingText" style="text-align:left;">{LANG->PeriodicLogin}<br />&nbsp;</div>
         {/IF}
       {/IF}
-      <form action="{URL->ACTION}" method="post" style="display: inline;">
-      {POST_VARS}
       <table cellspacing="0" align="center">
         <tr>
           <td>{LANG->Username}:&nbsp;</td>
@@ -26,14 +26,13 @@
           <td colspan="2" align="right"><input type="submit" class="PhorumSubmit" value="{LANG->Submit}" /></td>
         </tr>
       </table>
-      </form>
-
       {IF NOT LOGGEDIN}
         <div class="PhorumFloatingText"><a href="{URL->REGISTER}">{LANG->NotRegistered}</a></div>
       {ELSE}
         <br />
       {/IF}
     </div>
+  </form>
   <div align="center" style="margin-top: 30px;">
     <form action="{URL->ACTION}" method="post" style="display: inline;">
       {POST_VARS}
@@ -41,7 +40,7 @@
       <div class="PhorumStdBlock PhorumNarrowBlock">
         <div class="PhorumFloatingText">{LANG->LostPassInfo}</div>
         <div class="PhorumFloatingText">
-          <input type="text" id="lostpass" name="lostpass" size="30" value="" />
+          <input type="text" name="lostpass" size="30" value="" />
           <input type="submit" class="PhorumSubmit" value="{LANG->Submit}" />
         </div>
       </div>

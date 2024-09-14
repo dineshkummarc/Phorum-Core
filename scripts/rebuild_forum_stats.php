@@ -1,5 +1,7 @@
 #!/usr/bin/php
 <?php
+
+// if we are running in the webserver, bail out
 if ('cli' != php_sapi_name()) {
     echo "This script cannot be run from a browser.";
     return;
@@ -8,10 +10,11 @@ if ('cli' != php_sapi_name()) {
 define("PHORUM_ADMIN", 1);
 define('phorum_page', 'rebuild_forum_stats');
 
-require_once(dirname(__FILE__).'/../include/api.php');
+chdir(dirname(__FILE__) . "/..");
+require_once './common.php';
 
 // Make sure that the output is not buffered.
-phorum_api_buffer_clear();
+phorum_ob_clean();
 
 if (! ini_get('safe_mode')) {
     set_time_limit(0);
@@ -20,10 +23,8 @@ if (! ini_get('safe_mode')) {
 
 print "\nRebuild forum stats ...\n";
 
-$forums = phorum_api_forums_get(
-    NULL, NULL, NULL, NULL,
-    PHORUM_FLAG_INCLUDE_INACTIVE | PHORUM_FLAG_FORUMS
-);
+// we need to rebuild the forumstats
+$forums = phorum_db_get_forums();
 
 $count_total = count($forums);
 $size = strlen($count_total);
@@ -31,8 +32,10 @@ $count = 0;
 
 foreach ($forums as $fid => $fdata)
 {
-    $PHORUM['forum_id'] = $fid;
-    $PHORUM['DB']->update_forum_stats(true);
+    if ($fdata['folder_flag'] == 0) {
+        $PHORUM['forum_id'] = $fid;
+        phorum_db_update_forum_stats(true);
+    }
 
     $count ++;
 

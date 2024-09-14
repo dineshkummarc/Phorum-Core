@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,7 +15,6 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
 // This script can initially be called in multiple ways to indicate what
@@ -29,9 +29,6 @@
 //    - moderation  Moderator edit of an already posted message
 //    - reply       Reply to a message
 //    - quote       Reply to a message, with quoting of the original message
-//
-//    This parameter can also be numerical. In that case, we asume that it
-//    is a thread id and that the required posting mode is "reply".
 //
 // 3) If edit, moderation or reply is used: the message id.
 //
@@ -54,15 +51,17 @@
 // Basic setup and checks
 // ----------------------------------------------------------------------
 
-if (! defined('phorum_page')) define('phorum_page', 'post');
-require_once './common.php';
+if (! defined('phorum_page')) {
+    define('phorum_page', 'post');
+}
 
-require_once PHORUM_PATH.'/include/api/sign.php';
+include_once("./common.php");
+include_once("include/format_functions.php");
 
 // CSRF protection: we do not accept posting to this script,
 // when the browser does not include a Phorum signed token
 // in the request.
-phorum_api_request_check_token('post');
+$posting_token = phorum_check_posting_token('post');
 
 // Check if the Phorum is in read-only mode.
 if(isset($PHORUM["status"]) && $PHORUM["status"]==PHORUM_MASTER_STATUS_READ_ONLY
@@ -70,7 +69,7 @@ if(isset($PHORUM["status"]) && $PHORUM["status"]==PHORUM_MASTER_STATUS_READ_ONLY
     if(!(isset($PHORUM["postingargs"]["as_include"]) && $PHORUM["postingargs"]["as_include"])){
         phorum_build_common_urls();
         // Only show header and footer when not included in another page.
-        phorum_api_output("message");
+        phorum_output("message");
     }
     return;
 }
@@ -78,12 +77,16 @@ if(isset($PHORUM["status"]) && $PHORUM["status"]==PHORUM_MASTER_STATUS_READ_ONLY
 
 // No forum id was set. Take the user back to the index.
 if(!isset($PHORUM["forum_id"])){
-    phorum_api_redirect(PHORUM_INDEX_URL);
+    $dest_url = phorum_get_url(PHORUM_INDEX_URL);
+    phorum_redirect_by_url($dest_url);
+    exit();
 }
 // Somehow we got to a folder in posting.php. Take the
 // user back to the folder.
 if($PHORUM["folder_flag"]) {
-    phorum_api_redirect(PHORUM_INDEX_URL, $PHORUM["forum_id"]);
+    $dest_url = phorum_get_url(PHORUM_INDEX_URL, $PHORUM["forum_id"]);
+    phorum_redirect_by_url($dest_url);
+    exit();
 }
 
 // ----------------------------------------------------------------------
@@ -215,20 +218,18 @@ define("READONLYFIELDS", true);
  *
  * [example]
  *     <hookcode>
- *     function phorum_mod_foo_posting_init ()
+ *     function phorum_mod_foo_posting_init()
  *     {
  *         global $PHORUM;
  *
- *         // Set the default content for the message body.
- *         $PHORUM["post_fields"]["body"][pf_INIT] =
- *             $PHORUM["DATA"]["LANG"]["mod_foo"]["default_body_text"];
+ *         //add the default, descriptive text to the message body
+ *         $PHORUM["post_fields"]["body"][pf_INIT] = $PHORUM["DATA"]["LANG"]["mod_foo"]["default_body_text"];
  *
  *     }
  *     </hookcode>
  */
-if (isset($PHORUM["hooks"]["posting_init"])) {
-    phorum_api_hook("posting_init", "");
-}
+if (isset($PHORUM["hooks"]["posting_init"]))
+    phorum_hook("posting_init", "");
 
 // Is this an initial request?
 $initial = ! isset($_POST["message_id"]);
@@ -257,17 +258,8 @@ if (! isset($PHORUM["postingargs"])) {
 $PHORUM["posting_template"] = "posting";
 
 // Find out what editing mode we're running in.
-if ($initial)
-{
-    $mode = isset($PHORUM["postingargs"][1])
-          ? $PHORUM["postingargs"][1] : "post";
-
-    // To allow for posting.php?<thread_id>,<message_id> to indicate
-    // a message reply, which facilitates our URL building code in
-    // the phorum_api_url() call.
-    if (is_numeric($mode)) {
-        $mode = 'reply';
-    }
+if ($initial) {
+    $mode = isset($PHORUM["postingargs"][1]) ? $PHORUM["postingargs"][1] : "post";
 
     // Quote may also be passed as a phorum parameter (quote=1).
     if ($mode == "reply" && isset($PHORUM["postingargs"]["quote"]) && $PHORUM["postingargs"]["quote"]) {
@@ -280,9 +272,8 @@ if ($initial)
     );
     $mode = $_POST["mode"];
 }
-
 if (! in_array($mode, $valid_modes)) trigger_error(
-    "Illegal mode issued: " . phorum_api_format_htmlspecialchars($mode), E_USER_ERROR
+    "Illegal mode issued: " . htmlspecialchars($mode), E_USER_ERROR
 );
 
 // Find out if we are detaching an attachment.
@@ -306,16 +297,16 @@ $do_attach = count($_FILES) ? true : false;
 
 // Set all our URL's
 phorum_build_common_urls();
-$PHORUM["DATA"]["URL"]["ACTION"] = phorum_api_url(PHORUM_POSTING_ACTION_URL);
+$PHORUM["DATA"]["URL"]["ACTION"] = phorum_get_url(PHORUM_POSTING_ACTION_URL);
 
 // Keep track of errors.
 $PHORUM["DATA"]["ERROR"] = null;
 
 // Do things that are specific for first time or followup requests.
 if ($initial) {
-    include './include/posting/request_first.php';
+    include("./include/posting/request_first.php");
 } else {
-    include './include/posting/request_followup.php';
+    include("./include/posting/request_followup.php");
 }
 
 // Store the posting mode in the form parameters, so we can remember
@@ -330,8 +321,7 @@ switch($mode){
         $PHORUM["DATA"]["DESCRIPTION"] = "";
         $PHORUM['DATA']['BREADCRUMBS'][] = array(
             'URL'  => '',
-            'TEXT' => $PHORUM['DATA']['LANG']['NewTopic'],
-            'TYPE' => $mode
+            'TEXT' => $PHORUM['DATA']['LANG']['NewTopic']
         );
         break;
     case "moderation":
@@ -340,8 +330,7 @@ switch($mode){
         $PHORUM["DATA"]["DESCRIPTION"] = "";
         $PHORUM['DATA']['BREADCRUMBS'][] = array(
             'URL'  => '',
-            'TEXT' => $PHORUM['DATA']['LANG']['EditMessage'],
-            'TYPE' => $mode
+            'TEXT' => $PHORUM['DATA']['LANG']['EditMessage']
         );
         break;
 }
@@ -365,7 +354,7 @@ if ($message["message_id"]) {
 // Do ban list checks. Only check the bans on entering and
 // on finishing up. No checking is needed on intermediate requests.
 if ($initial || $finish || $preview) {
-    include './include/posting/check_banlist.php';
+    include("./include/posting/check_banlist.php");
 }
 
 // Determine the abilities that the current user has.
@@ -382,9 +371,7 @@ $PHORUM["DATA"]["MODERATOR"] =
     phorum_api_user_check_access(PHORUM_USER_ALLOW_MODERATE_MESSAGES);
 
 // Ability: Do we allow attachments?
-$PHORUM["DATA"]["ATTACHMENTS"] =
-    $PHORUM["max_attachments"] > 0 &&
-    phorum_api_user_check_access(PHORUM_USER_ALLOW_ATTACH);
+$PHORUM["DATA"]["ATTACHMENTS"] = $PHORUM["max_attachments"] > 0 && phorum_api_user_check_access(PHORUM_USER_ALLOW_ATTACH);
 
 // What options does this user have for a message?
 $PHORUM["DATA"]["OPTION_ALLOWED"] = array(
@@ -437,9 +424,9 @@ if (!$PHORUM["post_fields"]["author"][pf_READONLY]) {
  * [description]
  *     This hook can be used for setting up custom abilities and permissions for
  *     users, by updating the applicable fields in
- *     <literal>$GLOBALS["PHORUM"]["DATA"]["OPTION_ALLOWED"]</literal>
- *     (e.g. for giving certain users the right to make postings sticky, without
- *     having to make the full moderator for a forum).<sbr/>
+ *     <literal>$GLOBALS["PHORUM"]["DATA"]</literal> (e.g. for giving certain
+ *     users the right to make postings sticky, without having to make the full
+ *     moderator for a forum).<sbr/>
  *     <sbr/>
  *     Read the code in <filename>posting.php</filename> before this hook is
  *     called to find out what fields can be used.<sbr/>
@@ -463,7 +450,7 @@ if (!$PHORUM["post_fields"]["author"][pf_READONLY]) {
  *
  * [example]
  *     <hookcode>
- *     function phorum_mod_foo_posting_permissions ()
+ *     function phorum_mod_foo_posting_permissions()
  *     {
  *         global $PHORUM;
  *
@@ -473,19 +460,12 @@ if (!$PHORUM["post_fields"]["author"][pf_READONLY]) {
  *         // allow creating sticky posts for users in the "sticky_allowed"
  *         // group, if the option has not already been enabled.
  *         if (!$PHORUM["DATA"]["OPTION_ALLOWED"]["sticky"])
- *         {
- *             $is_in_group = phorum_api_user_check_group_access(
- *                 PHORUM_USER_GROUP_APPROVED,
- *                 $mod_foo_group_id
- *             );
- *             $PHORUM["DATA"]["OPTION_ALLOWED"]["sticky"] = $is_in_group;
- *         }
+ *             $PHORUM["DATA"]["OPTION_ALLOWED"]["sticky"] = phorum_api_user_check_group_access (PHORUM_USER_GROUP_APPROVED, $mod_foo_group_id);
  *     }
  *     </hookcode>
  */
-if (isset($PHORUM["hooks"]["posting_permissions"])) {
-    phorum_api_hook("posting_permissions");
-}
+if (isset($PHORUM["hooks"]["posting_permissions"]))
+    phorum_hook("posting_permissions");
 
 // Show special sort options in the editor? These only are
 // honoured for the thread starter messages, so we check the
@@ -520,11 +500,9 @@ if (isset($PHORUM["DATA"]["OPTION_ALLOWED"]["allow_reply"]) && $PHORUM["DATA"]["
 // Check permissions and apply read-only data.
 // Only do this on entering and on finishing up.
 // No checking is needed on intermediate requests.
-if ($initial || $finish)
-{
-    include './include/posting/check_permissions.php';
-    if ($PHORUM["posting_template"] == 'message' &&
-        empty($PHORUM["postingargs"]["as_include"])) {
+if ($initial || $finish) {
+    include("./include/posting/check_permissions.php");
+    if ($PHORUM["posting_template"] == 'message' && empty($PHORUM["postingargs"]["as_include"])) {
         return phorum_output('message');
     }
 }
@@ -571,27 +549,25 @@ if ($do_attach || $do_detach) {
  *         global $PHORUM;
  *
  *         // for some reason, create an MD5 signature for the original body
- *         if (!empty($message["body"]) {
+ *         if (!empty($message["body"])
  *             $message["meta"]["mod_foo"]["body_md5"] = md5($message["body"]);
- *         }
  *
  *         return $message;
  *     }
  *     </hookcode>
  */
-if (isset($PHORUM["hooks"]["posting_custom_action"])) {
-    $message = phorum_api_hook("posting_custom_action", $message);
-}
+if (isset($PHORUM["hooks"]["posting_custom_action"]))
+    $message = phorum_hook("posting_custom_action", $message);
 
 // Only check the integrity of the data on finishing up. During the
 // editing process, the user may produce garbage as much as he likes.
 if ($finish || $preview) {
-    include './include/posting/check_integrity.php';
+    include("./include/posting/check_integrity.php");
 }
 
 // Handle cancel request.
 if ($cancel) {
-    include './include/posting/action_cancel.php';
+    include("./include/posting/action_cancel.php");
 }
 
 // Count the number and total size of active attachments
@@ -608,7 +584,7 @@ foreach ($message["attachments"] as $attachment) {
 // Attachment management. This will update the
 // $attach_count and $attach_totalsize variables.
 if ($do_attach || $do_detach) {
-    include './include/posting/action_attachments.php';
+    include("./include/posting/action_attachments.php");
 }
 
 // Handle finishing actions.
@@ -616,11 +592,11 @@ if ( !$PHORUM["DATA"]["ERROR"] && $finish )
 {
     // Posting mode
     if ($mode == "post" || $mode == "reply") {
-        include './include/posting/action_post.php';
+        include("./include/posting/action_post.php");
     }
     // Editing mode.
     elseif ($mode == "edit") {
-        include './include/posting/action_edit.php';
+        include("./include/posting/action_edit.php");
     }
     // A little safety net.
     else trigger_error(
@@ -645,13 +621,12 @@ if ($PHORUM["posting_template"] == 'posting')
     if($PHORUM["max_attachments"]){
 
         // Retrieve upload limits as imposed by the system.
-        require_once PHORUM_PATH.'/include/api/system.php';
-        list ($system_max_upload, $php_max_upload, $db_max_upload) =
-            phorum_get_system_max_upload();
+        require_once('./include/upload_functions.php');
+        $system_max_upload = phorum_get_system_max_upload();
 
         // Apply the upload limits to the max attachment size.
-        if($PHORUM["max_attachment_size"]==0) $PHORUM["max_attachment_size"]=$system_max_upload/1024;
-        $PHORUM["max_attachment_size"] = min($PHORUM["max_attachment_size"],$system_max_upload/1024);
+        if($PHORUM["max_attachment_size"]==0) $PHORUM["max_attachment_size"]=$system_max_upload[0]/1024;
+        $PHORUM["max_attachment_size"] = min($PHORUM["max_attachment_size"],$system_max_upload[0]/1024);
 
         if ($PHORUM["max_totalattachment_size"]) {
             if ($PHORUM["max_totalattachment_size"] < $PHORUM["max_attachment_size"]) {
@@ -666,12 +641,12 @@ if ($PHORUM["posting_template"] == 'posting')
         }
         if ($PHORUM["max_attachment_size"]) {
             $PHORUM["DATA"]["ATTACH_FILE_SIZE"] = $PHORUM["max_attachment_size"];
-            $PHORUM["DATA"]["ATTACH_FORMATTED_FILE_SIZE"] = phorum_api_format_filesize($PHORUM["max_attachment_size"] * 1024);
+            $PHORUM["DATA"]["ATTACH_FORMATTED_FILE_SIZE"] = phorum_filesize($PHORUM["max_attachment_size"] * 1024);
             $PHORUM["DATA"]["EXPLAIN_ATTACH_FILE_SIZE"] = str_replace("%size%", $PHORUM["DATA"]["ATTACH_FORMATTED_FILE_SIZE"], $PHORUM["DATA"]["LANG"]["AttachFileSize"]);
         }
         if ($PHORUM["max_totalattachment_size"] && $PHORUM["max_attachments"]>1) {
             $PHORUM["DATA"]["ATTACH_TOTALFILE_SIZE"] = $PHORUM["max_totalattachment_size"];
-            $PHORUM["DATA"]["ATTACH_FORMATTED_TOTALFILE_SIZE"] = phorum_api_format_filesize($PHORUM["max_totalattachment_size"] * 1024);
+            $PHORUM["DATA"]["ATTACH_FORMATTED_TOTALFILE_SIZE"] = phorum_filesize($PHORUM["max_totalattachment_size"] * 1024);
             $PHORUM["DATA"]["EXPLAIN_ATTACH_TOTALFILE_SIZE"] = str_replace("%size%", $PHORUM["DATA"]["ATTACH_FORMATTED_TOTALFILE_SIZE"], $PHORUM["DATA"]["LANG"]["AttachTotalFileSize"]);
         }
         if ($PHORUM["max_attachments"] && $PHORUM["max_attachments"]>1) {
@@ -694,7 +669,7 @@ if ($PHORUM["posting_template"] == 'posting')
 
     // Process data for previewing.
     if ($preview) {
-        include './include/posting/action_preview.php';
+        include("./include/posting/action_preview.php");
     }
 
     // Always put the current mode in the message, so hook
@@ -720,7 +695,7 @@ if ($PHORUM["posting_template"] == 'posting')
             $val = base64_encode(serialize($message[$var]));
             if ($spec[pf_SIGNED]) $signval = $val;
         } else {
-            $val = phorum_api_format_htmlspecialchars($message[$var]);
+            $val = htmlspecialchars($message[$var], ENT_COMPAT, $PHORUM["DATA"]["HCHARSET"]);
             if ($spec[pf_SIGNED]) $signval = $message[$var];
         }
 
@@ -730,9 +705,9 @@ if ($PHORUM["posting_template"] == 'posting')
         }
 
         if ($signval !== NULL) {
-            $signature = phorum_api_sign($signval);
+            $signature = phorum_generate_data_signature($signval);
             $hidden .= '<input type="hidden" name="' . $var . ':signature" ' .
-                       'value="' . phorum_api_format_htmlspecialchars($signature) . "\" />\n";
+                       'value="' . htmlspecialchars($signature, ENT_COMPAT, $PHORUM["DATA"]["HCHARSET"]) . "\" />\n";
         }
     }
     $PHORUM["DATA"]["POST_VARS"] .= $hidden;
@@ -760,17 +735,17 @@ if ($PHORUM["posting_template"] == 'posting')
                         continue;
                     }
 
-                    $message[$var][$nr]["name"] = phorum_api_format_htmlspecialchars($data["name"]);
-                    $message[$var][$nr]["size"] = phorum_api_format_filesize(round($data["size"]));
+                    $message[$var][$nr]["name"] = htmlspecialchars($data["name"], ENT_COMPAT, $PHORUM["DATA"]["HCHARSET"]);
+                    $message[$var][$nr]["size"] = phorum_filesize(round($data["size"]));
                 }
             }
         } elseif ($var == "author") {
             if (empty($PHORUM["custom_display_name"])) {
-                $message[$var] = phorum_api_format_htmlspecialchars($val);
+                $message[$var] = htmlspecialchars($val, ENT_COMPAT, $PHORUM["DATA"]["HCHARSET"]);
             }
         } else {
             if (is_scalar($val)) {
-                $message[$var] = phorum_api_format_htmlspecialchars($val);
+                $message[$var] = htmlspecialchars($val, ENT_COMPAT, $PHORUM["DATA"]["HCHARSET"]);
             } else {
                 // Not used in the template, unless proven otherwise.
                 $message[$var] = '[removed from template data]';
@@ -845,9 +820,8 @@ if ($PHORUM["posting_template"] == 'posting')
      *     }
      *     </hookcode>
      */
-    if (isset($PHORUM["hooks"]["before_editor"])) {
-        $message = phorum_api_hook("before_editor", $message);
-    }
+    if (isset($PHORUM["hooks"]["before_editor"]))
+        $message = phorum_hook("before_editor", $message);
 
     // Make the message data available to the template engine.
     $PHORUM["DATA"]["POSTING"] = $message;
@@ -866,7 +840,7 @@ if ($PHORUM["posting_template"] == 'posting')
 if (isset($PHORUM["postingargs"]["as_include"]) && isset($templates)) {
     $templates[] = $PHORUM["posting_template"];
 } else {
-    phorum_api_output( $PHORUM["posting_template"] );
+    phorum_output( $PHORUM["posting_template"] );
 }
 
 // ----------------------------------------------------------------------

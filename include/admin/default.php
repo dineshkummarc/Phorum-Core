@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,17 +15,11 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
 if (!defined("PHORUM_ADMIN")) return;
 
-require_once './include/api/forums.php';
-
-// Show message if set in the URL.
-if (isset($_GET['okmsg'])) {
-    phorum_admin_okmsg(htmlspecialchars($_GET['okmsg']));
-}
+include_once('./include/api/forums.php');
 
 $folder_id = (int)((isset($_GET["parent_id"])) ? $_GET["parent_id"] : 0);
 $parent_parent_id = (int)((isset($_GET["pparent"])) ? $_GET["pparent"] : 0);
@@ -33,9 +28,7 @@ $parent_parent_id = (int)((isset($_GET["pparent"])) ? $_GET["pparent"] : 0);
 $folder = phorum_api_forums_get($folder_id);
 
 // Load the list of forums and folders that are in the current folder.
-$forums = phorum_api_forums_by_folder_id(
-    $folder_id, PHORUM_FLAG_INCLUDE_INACTIVE
-);
+$forums = phorum_api_forums_by_folder($folder_id);
 
 // Change the display order of the items in the list.
 if (isset($_GET['display_up']) || isset($_GET['display_down']))
@@ -51,7 +44,7 @@ if (isset($_GET['display_up']) || isset($_GET['display_down']))
     phorum_api_forums_change_order($folder_id, $forum_id, $movement, 1);
 
     // Get a fresh forum list with updated order.
-    $forums = phorum_api_forums_by_folder_id($folder_id);
+    $forums = phorum_api_forums_by_folder($folder_id);
 }
 
 $rows = '';
@@ -59,29 +52,29 @@ foreach($forums as $forum_id => $forum)
 {
     if ($forum["folder_flag"])
     {
-        $visit_url = phorum_api_url(PHORUM_INDEX_URL, $forum['forum_id']);
         $type="folder";
         $folder_edit_url = phorum_admin_build_url(array('module=editfolder',"forum_id=$forum_id"));
         $folder_delete_url = phorum_admin_build_url(array('module=deletefolder',"forum_id=$forum_id"));
-        $actions="<a href=\"$folder_edit_url\">Edit</a>&nbsp;&#149;&nbsp;<a href=\"$folder_delete_url\">Delete</a>&nbsp;&#149;&nbsp;<a href=\"$visit_url\">Visit</a>";
+        $actions="<a href=\"$folder_edit_url\">Edit</a>&nbsp;&bull;&nbsp;<a href=\"$folder_delete_url\">Delete</a>";
         $mainurl=phorum_admin_build_url(array('module=default',"parent_id=$forum_id"));
     } else {
-        $visit_url = phorum_api_url(PHORUM_LIST_URL, $forum['forum_id']);
         $type="forum";
         $forum_edit_url = phorum_admin_build_url(array('module=editforum',"forum_id=$forum_id"));
         $forum_delete_url = phorum_admin_build_url(array('module=deleteforum',"forum_id=$forum_id"));
-        $actions="<a href=\"$forum_edit_url\">Edit</a>&nbsp;&#149;&nbsp;<a href=\"$forum_delete_url\">Delete</a>&nbsp;&#149;&nbsp;<a href=\"$visit_url\">Visit</a>";
+
+        $actions="<a href=\"$forum_edit_url\">Edit</a>&nbsp;&bull;&nbsp;<a href=\"$forum_delete_url\">Delete</a>";
         $mainurl=NULL;
     }
 
     $rows.="<tr><th align=\"left\" valign=\"top\" class=\"PhorumAdminTableRow forum-title\">";
     if ($mainurl) $rows .= "<a href=\"$mainurl\">";
-    $rows .= "<span class=\"icon-$type\"></span>";
+    $rows .= "<span class=\"icon-$type\">";
     $rows .= '<strong>' . ($forum['vroot'] == $forum['forum_id'] ? 'Virtual root: ' : '') . $forum['name'] . '</strong>';
+    $rows .= "</span>";
     if ($mainurl) $rows .= "</a>";
     $mv_up_url = phorum_admin_build_url(array('module=default',"display_up=$forum_id","parent_id=$folder_id"));
     $mv_down_url = phorum_admin_build_url(array('module=default',"display_down=$forum_id","parent_id=$folder_id"));
-    $rows .= "<p class=\"forum-description\">$forum[description]</p></th><td class=\"PhorumAdminTableRow\"><a href=\"$mv_up_url\"><img border=\"0\" src=\"{$PHORUM["http_path"]}/images/arrow_up.png\" alt=\"Up\" title=\"Up\"/></a>&nbsp;<a href=\"$mv_down_url\"><img border=\"0\" src=\"{$PHORUM["http_path"]}/images/arrow_down.png\" alt=\"Down\" title=\"Down\"/></a></td><td class=\"PhorumAdminTableRow\">$actions</td></tr>\n";
+    $rows .= "<p class=\"forum-description\">$forum[description]</p></th><td class=\"PhorumAdminTableRow\"><span style=\"white-space: nowrap;\"><a href=\"$mv_up_url\"><img border=\"0\" src=\"{$PHORUM["http_path"]}/images/arrow_up.png\" alt=\"Up\" title=\"Up\" /></a>&nbsp;<a href=\"$mv_down_url\"><img border=\"0\" src=\"{$PHORUM["http_path"]}/images/arrow_down.png\" alt=\"Down\" title=\"Down\" /></a></span></td><td class=\"PhorumAdminTableRow\">$actions</td></tr>\n";
 }
 
 if (empty($rows)) {
@@ -93,6 +86,10 @@ if ($folder_id > 0)
     $elts = array();
     foreach ($folder['forum_path'] as $id => $name)
     {
+        if (!empty($folder['vroot']) &&
+            $folder['vroot'] == $folder['forum_id'] &&
+            $folder['parent_id'] == $id) continue;
+
         if (empty($elts)) {
             if (empty($folder['vroot'])) {
                 $name = 'Root folder';
@@ -125,12 +122,10 @@ else {
 <div class="PhorumAdminBreadcrumbs">
   <?php
   if (empty($folder['forum_id'])) {
-      print "<span class=\"icon-folder\"></span>";
+      print "<span class=\"icon-folder\">$path</span>";
   } else {
-      $upurl = phorum_admin_build_url(array('module=default',"parent_id=$parent_parent_id"));
-      print "<a href=\"$upurl\"><span class=\"icon-folder-up\"></span></a>";
+      print "<span class=\"icon-folder-up\">$path</span>";
   }
-  echo "$path";
   ?>
 </div>
 

@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -17,9 +18,9 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_ADMIN")) return;
+if ( !defined( "PHORUM_ADMIN" ) ) return;
 
-require_once './include/admin/PhorumInputForm.php';
+include_once "./include/admin/PhorumInputForm.php";
 
 // Find the update step that we have to run.
 $step = empty($_REQUEST["step"]) ? 0 : $_REQUEST["step"];
@@ -63,11 +64,11 @@ else
         $batch = empty($_REQUEST["batch"]) ? 0 : $_REQUEST["batch"];
 
         // Retrieve users for this batch.
-        $res = $PHORUM['DB']->user_get_all($batch * $batchsize, $batchsize);
+        $res = phorum_db_user_get_all($batch * $batchsize, $batchsize);
 
         // Handle batch.
         $updated = 0;
-        while ($user = $PHORUM['DB']->fetch_row($res, DB_RETURN_ASSOC))
+        while ($user = phorum_db_fetch_row($res, DB_RETURN_ASSOC))
         {
             $updated ++;
 
@@ -79,7 +80,7 @@ else
             // ... but still we run the name updates here, so inconsitencies
             // are flattened out.
             $user = phorum_api_user_get($user["user_id"]);
-            $PHORUM['DB']->user_display_name_updates(array(
+            phorum_db_user_display_name_updates(array(
                 "user_id"      => $user["user_id"],
                 "display_name" => $user["display_name"]
             ));
@@ -87,6 +88,7 @@ else
 
         if ($updated == 0) {
             $frm = new PhorumInputForm ("", "post", "Finish");
+            $frm->hidden('module', 'rebuild');
             $frm->addbreak("Display names updated");
             $frm->addmessage(
                 "The display names are all updated successfully."
@@ -99,13 +101,13 @@ else
     // Retrieve user count.
     $user_count = isset($_REQUEST['user_count'])
                 ? (int) $_REQUEST['user_count']
-                : $PHORUM['DB']->user_count();
+                : phorum_db_user_count();
 
     $perc = floor((($batch+1) * $batchsize) / $user_count * 100);
     if ($perc > 100) $perc = 100; ?>
 
-    <strong>Running display name updates.</strong><br/>
-    <strong>This might take a while ...</strong><br/><br/>
+    <strong>Running display name updates.</strong><br />
+    <strong>This might take a while ...</strong><br /><br />
     <table><tr><td>
     <div style="height:20px;width:300px; border:1px solid black">
     <div style="height:20px;width:<?php print $perc ?>%;background-color:green">
@@ -114,14 +116,15 @@ else
           $update_count = min(($batch+1)*$batchsize, $user_count);
           print "$update_count users of $user_count updated" ?>
     </td></tr></table> <?php
-
     $redir = phorum_admin_build_url(array('module=update_display_names',"batch=".($batch+1),'step=2','user_count='.$user_count), TRUE);
     ?>
 
     <script type="text/javascript">
+    // <![CDATA[
     window.onload = function () {
         document.location.href = '<?php print addslashes($redir) ?>';
     }
+    // ]]>
     </script> <?php
 }
 

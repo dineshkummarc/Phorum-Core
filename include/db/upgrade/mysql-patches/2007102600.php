@@ -1,7 +1,7 @@
 <?php
 
 // Find orphaned messages in newflags
-$res = $PHORUM['DB']->interact(
+$res = phorum_db_interact(
     DB_RETURN_RES,
     "SELECT    distinct {$PHORUM['user_newflags_table']}.message_id
      FROM      {$PHORUM['user_newflags_table']}
@@ -15,14 +15,14 @@ $ids = array();
 $done = false;
 while (!$done) {
 
-    if($row = $PHORUM['DB']->fetch_row($res, DB_RETURN_ROW)){
+    if($row = phorum_db_fetch_row($res, DB_RETURN_ROW)){
         $ids[] = $row[0];
     } else {
         $done = true;
     }
 
     if(count($ids) > 1000 || ($done && count($ids) > 0)){
-        $PHORUM['DB']->interact(
+        phorum_db_interact(
             DB_RETURN_RES,
             "DELETE
              FROM      {$PHORUM['user_newflags_table']}

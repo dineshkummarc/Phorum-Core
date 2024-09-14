@@ -15,11 +15,11 @@ define("PHORUM_ADMIN", 1);
 define('phorum_page', 'create_moderator_groups');
 
 chdir(dirname(__FILE__) . "/..");
-require_once('./common.php');
-require_once('./include/api/forums.php');
+require_once './common.php';
+require_once './include/api/forums.php';
 
 // Make sure that the output is not buffered.
-phorum_api_buffer_clear();
+phorum_ob_clean();
 
 print "\nCreate forum moderator groups ...\n";
 
@@ -27,7 +27,7 @@ $forums = phorum_api_forums_get();
 
 // Find out which forums already have a moderator group available.
 $forum_has_moderator = array();
-$groups=$PHORUM['DB']->get_groups();
+$groups=phorum_db_get_groups();
 foreach ($groups as $id => $group) {
     foreach ($group['permissions'] as $forum_id => $permission) {
         if ($permission & PHORUM_USER_ALLOW_MODERATE_MESSAGES) {
@@ -35,6 +35,7 @@ foreach ($groups as $id => $group) {
         }
     }
 }
+print_r($forum_has_moderator);
 
 foreach ($forums as $forum_id => $fdata)
 {
@@ -48,13 +49,13 @@ foreach ($forums as $forum_id => $fdata)
     }
 
     $path = $fdata['forum_path'];
-    array_shift($path);
-    $name = implode('::',$path);
+    array_unshift($path);
+    $name = implode('::', $path);
 
-    $group_id = $PHORUM['DB']->add_group("Moderate $name");
+    $group_id = phorum_db_add_group("Moderate $name");
     if (!$group_id) die("Error adding group \"$name\".\n");
 
-    $PHORUM['DB']->update_group(array(
+    phorum_db_update_group(array(
         'group_id' => $group_id,
         'open'     => 0,
         'permissions' => array(

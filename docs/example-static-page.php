@@ -6,10 +6,11 @@
 // your Phorum root. Customize it for your needs.
 
 define('phorum_page', 'example-static-page');
-require_once './common.php';
+
+include_once './common.php';
 
 // Include necessary API classes
-// require_once PHORUM_PATH.'/include/api/xxx/xxx.php';
+// include_once PHORUM_PATH.'/include/xxx.php';
 
 // Set heading, description and breadcrumps
 $PHORUM['DATA']['HEADING'] = 'Static Page Example'.(isset($PHORUM['name']) ? ' - '.$PHORUM['name'] : '');

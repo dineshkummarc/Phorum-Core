@@ -7,7 +7,7 @@ if(!defined("PHORUM") && !defined("PHORUM_ADMIN")) return;
 if (! isset($GLOBALS['PHORUM']['mod_smileys'])           ||
     ! isset($GLOBALS['PHORUM']['mod_smileys']['prefix']) ||
     ! isset($GLOBALS['PHORUM']['mod_smileys']['smileys'])) {
-    require_once('./mods/smileys/smileyslib.php');
+    require_once("./mods/smileys/smileyslib.php");
     $GLOBALS['PHORUM']['mod_smileys'] = phorum_mod_smileys_initsettings();
 }
 
@@ -29,5 +29,7 @@ if (empty($GLOBALS['PHORUM']['mod_smileys']['subjectsmiley_popup_width'])) {
 if (empty($GLOBALS['PHORUM']['mod_smileys']['subjectsmiley_popup_offset'])) {
     $GLOBALS['PHORUM']['mod_smileys']['subjectsmiley_popup_offset'] = 0;
 }
-
+if (empty($GLOBALS['PHORUM']['mod_smileys']['allow_disable_per_post'])) {
+    $GLOBALS['PHORUM']['mod_smileys']['allow_disable_per_post'] = 1;
+}
 ?>

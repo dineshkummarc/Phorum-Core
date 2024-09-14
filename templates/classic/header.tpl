@@ -50,6 +50,7 @@ if ($PHORUM['DATA']['CHARSET']) {
             {GLOBAL_ERROR}
           </div>
         {/IF}
+
         {IF USER->NOTICE->SHOW OR USER->new_private_messages}
           <div class="PhorumNotificationArea PhorumNavBlock">
             {IF USER->new_private_messages}<a class="PhorumNavLink" href="{URL->PM}">{LANG->NewPrivateMessages}</a><br />{/IF}

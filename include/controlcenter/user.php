@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,23 +15,23 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_CONTROL_CENTER")) return;
+if(!defined("PHORUM_CONTROL_CENTER")) return;
 
 if(count($_POST)) {
     list($error,$okmsg) = phorum_controlcenter_user_save($panel);
 }
 
 // need their names for the later check
-$profile_field_names = array();
-if(is_array($PHORUM["CUSTOM_FIELDS"][PHORUM_CUSTOM_FIELD_USER])) {
-    foreach ($PHORUM["CUSTOM_FIELDS"][PHORUM_CUSTOM_FIELD_USER] as $id => $fieldinfo) {
+$profile_field_names=array();
+if(is_array($PHORUM["PROFILE_FIELDS"])) {
+    foreach ($PHORUM["PROFILE_FIELDS"] as $id => $fieldinfo) {
         $profile_field_names[$fieldinfo['name']]=$fieldinfo['name'];
     }
 }
 
+$PHORUM["DATA"]["HEADING"] = $PHORUM["DATA"]["LANG"]["EditUserinfo"];
 $PHORUM['DATA']['PROFILE']['USERPROFILE'] = 1;
 $template = "cc_usersettings";
 

@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,10 +15,9 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM")) return;
+if(!defined("PHORUM")) return;
 
 // Retrieve the message id to work with.
 $message_id = 0;
@@ -43,20 +43,10 @@ if ($mode != "post")
 
     // Load the message from the database. If the message
     // can't be retrieved, then return to the message list.
-    $dbmessage=null;
-    if($PHORUM['cache_messages']) {
-        $dbmessage = phorum_api_cache_get('message',$PHORUM["forum_id"]."-".$message_id);
-    }
-
-    if($dbmessage == null) {
-        $dbmessage = $PHORUM['DB']->get_message($message_id);
-
-        if($PHORUM['cache_messages']) {
-            phorum_api_cache_put('message',$PHORUM["forum_id"]."-".$message_id,$dbmessage);
-        }
-    }
+    $dbmessage = phorum_db_get_message($message_id);
     if (! $dbmessage) {
-        phorum_api_redirect(PHORUM_LIST_URL);
+        phorum_redirect_by_url(phorum_get_url(PHORUM_LIST_URL));
+        exit;
     }
 }
 
@@ -68,7 +58,7 @@ if ($mode == "reply" || $mode == "quote")
     $message["thread"] = $dbmessage["thread"];
 
     // Create Re: subject prefix.
-    if (substr($dbmessage["subject"], 0, 4) != "Re: ") {
+    if (mb_substr($dbmessage["subject"], 0, 4) != "Re: ") {
         $dbmessage["subject"] = "Re: " . $dbmessage["subject"];
     }
     $message["subject"] = $dbmessage["subject"];
@@ -86,17 +76,14 @@ if ($mode == "reply" || $mode == "quote")
 
         $quoted = 0;
         if (isset($PHORUM["hooks"]["quote"])) {
-            $quoted = phorum_api_hook(
-                "quote",
-                array($author, $dbmessage["body"], $dbmessage["user_id"])
-            );
+            $quoted = phorum_hook("quote", array($author, $dbmessage["body"], $dbmessage["user_id"]));
         }
 
         if (empty($quoted) || is_array($quoted))
         {
-            $quoted = phorum_api_format_strip($dbmessage["body"]);
+            $quoted = phorum_strip_body($dbmessage["body"], false);
             $quoted = str_replace("\n", "\n> ", $quoted);
-            $quoted = phorum_api_format_wordwrap(trim($quoted), 50, "\n> ", true);
+            $quoted = phorum_wordwrap(trim($quoted), 50, "\n> ", false);
             $quoted = "$author " .
                       "{$PHORUM["DATA"]["LANG"]["Wrote"]}:\n" .
                       str_repeat("-", 55) . "\n> $quoted\n\n\n";
@@ -131,7 +118,6 @@ if (($mode == "post" || $mode == "reply" || $mode == "quote") && $PHORUM["DATA"]
         } else {
             $message["subscription"] = "";
         }
-
 
     }
 }

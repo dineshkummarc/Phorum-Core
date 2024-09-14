@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,12 +15,12 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM")) return;
+if(!defined("PHORUM")) return;
 
-require_once PHORUM_PATH.'/include/api/mail.php';
+// For phorum_valid_email()
+include_once("./include/email_functions.php");
 
 $error = false;
 
@@ -75,8 +76,7 @@ if (! $PHORUM["DATA"]["LOGGEDIN"] &&
  *
  * [example]
  *     <hookcode>
- *     function phorum_mod_foo_check_post ($args)
- *     {
+ *     function phorum_mod_foo_check_post ($args) {
  *        list ($message, $error) = $args;
  *        if (!empty($error)) return $args;
  *
@@ -88,10 +88,9 @@ if (! $PHORUM["DATA"]["LOGGEDIN"] &&
  *    }
  *     </hookcode>
  */
-if (! $error && isset($PHORUM["hooks"]["check_post"])) {
+if (! $error && isset($PHORUM["hooks"]["check_post"]))
     list($message, $error) =
-        phorum_api_hook("check_post", array($message, $error));
-}
+        phorum_hook("check_post", array($message, $error));
 
 // Data integrity checks for all messages.
 if (! $error)
@@ -101,7 +100,7 @@ if (! $error)
     } elseif (!isset($message["body"]) || trim($message["body"]) == '') {
         $error = $PHORUM["DATA"]["LANG"]["ErrBody"];
     } elseif (!empty($message["email"]) &&
-              !phorum_api_mail_check_address($message["email"])) {
+              !phorum_valid_email($message["email"])) {
         $error = $PHORUM["DATA"]["LANG"]["ErrEmail"];
     } elseif (strlen($message["body"]) > MAX_MESSAGE_LENGTH) {
         $error = $PHORUM["DATA"]["LANG"]["ErrBodyTooLarge"];

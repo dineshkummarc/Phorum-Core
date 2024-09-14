@@ -17,36 +17,36 @@
 //   along with this program.                                                 //
 ////////////////////////////////////////////////////////////////////////////////
 
-    // don't allow this page to be loaded directly
+    // Don't allow this page to be loaded directly.
     if(!defined("PHORUM_ADMIN")) exit();
 
     if(count($_POST)) {
         if(!empty($_POST['phorum_admin_token']) &&
-            $_POST['phorum_admin_token'] == $PHORUM["user"]['settings_data']['admin_token'] &&
-            time()-PHORUM_ADMIN_TOKEN_TIMEOUT < $PHORUM["user"]['settings_data']['admin_token_time']
+            $_POST['phorum_admin_token'] == $GLOBALS["PHORUM"]["user"]['settings_data']['admin_token'] &&
+            time()-PHORUM_ADMIN_TOKEN_TIMEOUT < $GLOBALS["PHORUM"]["user"]['settings_data']['admin_token_time']
            ) {
 
                if(!empty($_POST['cancel'])) {
 
-                   $PHORUM["user"]['settings_data']['admin_token'] = "";
+                   $GLOBALS["PHORUM"]["user"]['settings_data']['admin_token'] = "";
 
                    $tmp_user = array(
-                       'user_id'=>$PHORUM["user"]['user_id'],
-                       'settings_data'=>$PHORUM["user"]['settings_data']
+                        'user_id'=>$GLOBALS["PHORUM"]["user"]['user_id'],
+                        'settings_data'=>$GLOBALS["PHORUM"]["user"]['settings_data']
                    );
                    phorum_api_user_save($tmp_user);
 
-                   phorum_api_redirect($PHORUM['http_path']);
+                   phorum_redirect_by_url($PHORUM['http_path']);
 
                } elseif(!empty($_POST['continue'])) {
 
                    if(!empty($_POST['target'])) {
                        $url = phorum_admin_build_url($_POST['target'], TRUE);
                    } else {
-                       $url = phorum_admin_build_url(NULL, TRUE);
+                       $url = phorum_admin_build_url('', TRUE);
                    }
 
-                   phorum_api_redirect($url);
+                   phorum_redirect_by_url($url);
                }
                exit();
            }
@@ -55,7 +55,7 @@
     // We have no token or our token expired.
     // Generate a fresh token.
     $admin_token_time = time();
-    $admin_token = phorum_api_sign(
+    $admin_token = phorum_generate_data_signature(
         $PHORUM['user']['user_id'].
         microtime().
         $PHORUM['user']['username'].
@@ -81,13 +81,13 @@
             $module = basename($_GET['module']);
         }
         $url = phorum_admin_build_url('module='.urlencode($module), TRUE);
-        phorum_api_redirect($url);
+        phorum_redirect_by_url($url);
     }
 
     $targetargs = $_SERVER['QUERY_STRING'];
-    $target_html = phorum_admin_build_url($targetargs);
+    $target_html = htmlspecialchars(phorum_admin_build_url($targetargs));
     $targs_html = htmlspecialchars($targetargs);
-    $post_url = phorum_admin_build_url();
+    $post_url = phorum_admin_build_url('base');
 ?>
 You are accessing the admin after a security timeout.<br /><br />
 The requested URL was:
@@ -97,7 +97,7 @@ Please click on <strong>continue</strong> to go to this URL or on <strong>cancel
 <br /><br />
 <form action="<?php echo $post_url;?>" method="post">
 <input type="hidden" name="module" value="tokenmissing" />
-<input type="hidden" name="phorum_admin_token" value="<?php echo $PHORUM["user"]['settings_data']['admin_token'];?>" />
+<input type="hidden" name="phorum_admin_token" value="<?php echo $GLOBALS["PHORUM"]["user"]['settings_data']['admin_token'];?>" />
 <input type="hidden" name="target" value="<?php echo $targs_html;?>" />
 <input type="submit" name="cancel" value="cancel" />
 <input type="submit" name="continue" value="continue" />

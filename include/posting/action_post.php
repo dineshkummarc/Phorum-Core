@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,15 +15,18 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM")) return;
+if(!defined("PHORUM")) return;
 
-require_once PHORUM_PATH.'/include/api/thread.php';
-require_once PHORUM_PATH.'/include/api/file.php';
-require_once PHORUM_PATH.'/include/api/mail/message_notify.php';
-require_once PHORUM_PATH.'/include/api/mail/message_moderate.php';
+// For phorum_update_thread_info().
+include_once("./include/thread_info.php");
+
+// For phorum_email_moderators() and phorum_email_notice().
+include_once("./include/email_functions.php");
+
+require_once("./include/api/base.php");
+require_once("./include/api/file_storage.php");
 
 // Set some values.
 $message["moderator_post"] = $PHORUM["DATA"]["MODERATOR"] ? 1 : 0;
@@ -135,15 +139,14 @@ if (!count($message["meta"]["attachments"])) {
  *     }
  *     </hookcode>
  */
-if (isset($PHORUM["hooks"]["before_post"])) {
-    $message = phorum_api_hook("before_post", $message);
-}
+if (isset($PHORUM["hooks"]["before_post"]))
+    $message = phorum_hook("before_post", $message);
 
 // Keep a copy of the message we have got now.
 $message_copy = $message;
 
 // Store the message in the database.
-$success = $PHORUM['DB']->post_message($message);
+$success = phorum_db_post_message($message);
 
 if ($success)
 {
@@ -152,7 +155,7 @@ if ($success)
     // of attachments.
     foreach ($message_copy["attachments"] as $info) {
         if ($info["keep"]) {
-            $PHORUM['DB']->file_link(
+            phorum_db_file_link(
                 $info["file_id"],
                 $message["message_id"],
                 PHORUM_LINK_MESSAGE
@@ -168,14 +171,14 @@ if ($success)
     // format (otherwise it's a bit messed up in the
     // post-function). Do merge back data which is not
     // stored in the database, but which we might need later on.
-    $message = $PHORUM['DB']->get_message($message["message_id"],'message_id',false,true);
+    $message = phorum_db_get_message($message["message_id"],'message_id',false,true);
     foreach ($message_copy as $key => $val) {
         if (! isset($message[$key])) {
             $message[$key] = $val;
         }
     }
 
-    phorum_api_thread_update_metadata($message["thread"]);
+    phorum_update_thread_info($message["thread"]);
 
     /*
      * [hook]
@@ -215,9 +218,8 @@ if ($success)
      *     }
      *     </hookcode>
      */
-    if (isset($PHORUM["hooks"]["after_message_save"])) {
-        $message = phorum_api_hook("after_message_save", $message);
-    }
+    if (isset($PHORUM["hooks"]["after_message_save"]))
+        $message = phorum_hook("after_message_save", $message);
 
 
     // Subscribe user to the thread if requested. When replying, this
@@ -265,9 +267,9 @@ if ($success)
     if ($PHORUM["DATA"]["LOGGEDIN"])
     {
         // Mark own message read.
-        $PHORUM['DB']->newflag_add_read(array(array(
-            'id'       => $message['message_id'],
-            'forum_id' => $message['forum_id'],
+        phorum_db_newflag_add_read(array(0=>array(
+            "id"    => $message["message_id"],
+            "forum" => $message["forum_id"],
         )));
 
         // Increase the user's post count.
@@ -278,15 +280,16 @@ if ($success)
     if ($message["status"] > 0)
     {
         // Update forum statistics.
-        $PHORUM['DB']->update_forum_stats(false, 1, $message["datestamp"]);
+        phorum_db_update_forum_stats(false, 1, $message["datestamp"]);
 
         // Mail subscribed users.
-        phorum_api_mail_message_notify($message);
+        phorum_email_notice($message);
+
     }
 
     // Mail moderators.
     if ($PHORUM["email_moderators"] == PHORUM_EMAIL_MODERATOR_ON) {
-        phorum_api_mail_message_moderate($message);
+        phorum_email_moderators($message);
     }
 
     /*
@@ -333,9 +336,8 @@ if ($success)
      *     }
      *     </hookcode>
      */
-    if (isset($PHORUM["hooks"]["after_post"])) {
-        $message = phorum_api_hook("after_post", $message);
-    }
+    if (isset($PHORUM["hooks"]["after_post"]))
+        $message = phorum_hook("after_post", $message);
 
     // Posting is completed. Take the user back to the forum.
     if ($PHORUM["redirect_after_post"] == "read")
@@ -349,7 +351,7 @@ if ($success)
         // or to the thread starter in case the new message is not viewable.
         if (isset($top_parent)) {
             if ($not_viewable) {
-                $redir_url = phorum_api_url(
+                $redir_url = phorum_get_url(
                     PHORUM_READ_URL, $message["thread"]
                 );
             } else {
@@ -357,12 +359,12 @@ if ($success)
                 $pages = ceil(($top_parent["thread_count"]+1) / $readlen);
 
                 if ($pages > 1) {
-                    $redir_url = phorum_api_url(
+                    $redir_url = phorum_get_url(
                         PHORUM_READ_URL, $message["thread"],
                         $message["message_id"], "page=$pages"
                     );
                 } else {
-                    $redir_url = phorum_api_url(
+                    $redir_url = phorum_get_url(
                         PHORUM_READ_URL, $message["thread"],
                         $message["message_id"]
                     );
@@ -373,13 +375,13 @@ if ($success)
         // the forum's message list in case the new message is not viewable.
         } else {
             $redir_url = $not_viewable
-                       ? phorum_api_url(PHORUM_LIST_URL)
-                       : phorum_api_url(PHORUM_READ_URL, $message["thread"]);
+                       ? phorum_get_url(PHORUM_LIST_URL)
+                       : phorum_get_url(PHORUM_READ_URL, $message["thread"]);
         }
     }
     else
     {
-        $redir_url = phorum_api_url(PHORUM_LIST_URL);
+        $redir_url = phorum_get_url(PHORUM_LIST_URL);
     }
 
     /*
@@ -415,28 +417,26 @@ if ($success)
      *     }
      *     </hookcode>
      */
-    if (isset($PHORUM["hooks"]["after_post_redirect"])) {
-        $redir_url = phorum_api_hook(
-            "after_post_redirect", $redir_url, $message);
-    }
+    if (isset($PHORUM["hooks"]["after_post_redirect"]))
+        $redir_url = phorum_hook("after_post_redirect", $redir_url, $message);
 
     if ($message["status"] > 0) {
-        phorum_api_redirect($redir_url);
+        phorum_redirect_by_url($redir_url);
     } else {
         // give a message about this being a moderated forum before redirecting
         $PHORUM['DATA']['OKMSG']=$PHORUM['DATA']['LANG']['ModeratedForum'];
         $PHORUM['DATA']["URL"]["REDIRECT"]=$redir_url;
 
-        // clickheremsg is depending on the place we are returning to
+        // BACKMSG is depending on the place we are returning to
         if ($PHORUM["redirect_after_post"] == "read") {
             $PHORUM['DATA']['BACKMSG'] = $PHORUM['DATA']['LANG']['BackToThread'];
         } else {
             $PHORUM['DATA']['BACKMSG'] = $PHORUM['DATA']['LANG']['BackToList'];
         }
 
-        // make it a little bit longer visible
+        // make it a little bit more visible
         $PHORUM['DATA']["URL"]["REDIRECT_TIME"]=10;
-        phorum_api_output('message');
+        phorum_output('message');
         exit(0);
     }
 

@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -22,10 +23,10 @@ define('phorum_page','script');
 define('PHORUM_SCRIPT', 1);
 
 chdir(dirname(__FILE__));
-require_once './common.php';
+include_once("./common.php");
 
 // if we are running in the webserver, bail out
-if (isset($_SERVER["REMOTE_ADDR"])) {
+if ('cli' != php_sapi_name()) {
     echo $PHORUM["DATA"]["LANG"]["CannotBeRunFromBrowser"];
     return;
 }
@@ -73,7 +74,7 @@ while (count($args))
 // At least one of --module or --scheduled is required.
 // Additionally, exactly one module name is required for "external" mode.
 if ($callhook === NULL || ($callhook == 'external' and count($modules) != 1)) {
-    echo $PHORUM["DATA"]["LANG"]["ScriptUsage"];
+    echo $GLOBALS["PHORUM"]["DATA"]["LANG"]["ScriptUsage"];
     exit(1);
 }
 
@@ -117,7 +118,6 @@ if (count($modules))
 // ----------------------------------------------------------------------
 // Run the "external" hook for a module.
 // ----------------------------------------------------------------------
-
 /*
  * [hook]
  *     external
@@ -159,8 +159,8 @@ if (count($modules))
  *
  * [output]
  *     Same as input.
+ *
  */
-
 if ($callhook == 'external')
 {
     $module = array_shift($modules);
@@ -173,15 +173,13 @@ if ($callhook == 'external')
     array_unshift($callargs, $module);
     $callargs = array_values($callargs); // reindex (0, 1, 2, ...) array keys.
 
-
     // Call the external hook.
-    phorum_api_hook("external", $callargs);
+    phorum_hook("external", $callargs);
 }
 
 // ----------------------------------------------------------------------
 // Run the "scheduled" hook for all modules.
 // ----------------------------------------------------------------------
-
 /*
  * [hook]
  *     scheduled
@@ -243,11 +241,11 @@ if ($callhook == 'external')
  *
  * [output]
  *     None
+ *
  */
-
 elseif ($callhook == 'scheduled')
 {
-    phorum_api_hook('scheduled');
+    phorum_hook('scheduled');
 }
 
 // ----------------------------------------------------------------------
@@ -255,7 +253,7 @@ elseif ($callhook == 'scheduled')
 // ----------------------------------------------------------------------
 
 else {
-    echo $PHORUM["DATA"]["LANG"]["ScriptUsage"];
+    echo $GLOBALS["PHORUM"]["DATA"]["LANG"]["ScriptUsage"];
     exit(1);
 }
 

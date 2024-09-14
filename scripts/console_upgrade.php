@@ -1,25 +1,31 @@
 #!/usr/bin/php
 <?php
-////////////////////////////////////////////////////////////////////////////////
-//                                                                            //
-//   Copyright (C) 2016  Phorum Development Team                              //
-//   http://www.phorum.org                                                    //
-//                                                                            //
-//   This program is free software. You can redistribute it and/or modify     //
-//   it under the terms of either the current Phorum License (viewable at     //
-//   phorum.org) or the Phorum License that was distributed with this file    //
-//                                                                            //
-//   This program is distributed in the hope that it will be useful,          //
-//   but WITHOUT ANY WARRANTY, without even the implied warranty of           //
-//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                     //
-//                                                                            //
-//   You should have received a copy of the Phorum License                    //
-//   along with this program.                                                 //
-//                                                                            //
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Copyright (C) 2016  Phorum Development Team                               //
+// http://www.phorum.org                                                     //
+//                                                                           //
+// This program is free software. You can redistribute it and/or modify      //
+// it under the terms of either the current Phorum License (viewable at      //
+// phorum.org) or the Phorum License that was distributed with this file     //
+//                                                                           //
+// This program is distributed in the hope that it will be useful,           //
+// but WITHOUT ANY WARRANTY, without even the implied warranty of            //
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                      //
+//                                                                           //
+// You should have received a copy of the Phorum License                     //
+// along with this program.                                                  //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
 
 // I guess the phorum-directory is one level up. if you move the script to
 // somewhere else you'll need to change that.
+
+if ('cli' != php_sapi_name()) {
+    echo "This script cannot be run from a browser.";
+    return;
+}
+
 $PHORUM_DIRECTORY = dirname(__FILE__) . "/../";
 
 // change directory to the main-dir so we can use common.php
@@ -38,10 +44,11 @@ if(file_exists($PHORUM_DIRECTORY."/common.php")) {
 }
 
 // if we are running in the webserver, bail out
-if ('cli' != php_sapi_name()) {
-    echo "This script cannot be run from a browser.";
-    return;
+if (isset($_SERVER["REMOTE_ADDR"])) {
+   echo "This script cannot be run from a browser.";
+   return;
 }
+
 // Load Phorum core code.
 define("phorum_page", "console_upgrade");
 define("PHORUM_ADMIN", 1);
@@ -110,7 +117,7 @@ while (!empty($argv))
 }
 
 // Make sure that the output is not buffered.
-phorum_api_buffer_clear();
+phorum_ob_clean();
 
 echo "\n";
 echo "Phorum console based database upgrade\n";
@@ -118,10 +125,10 @@ echo "-------------------------------------\n";
 echo "\n";
 
 // Open the database connection.
-if(!$PHORUM['DB']->check_connection()){
+if(!phorum_db_check_connection()){
     fprintf(STDERR,
          "A database connection could not be established.\n" .
-         "Please edit include/config/database.php.\n");
+         "Please edit include/db/config.php.\n");
     exit(1);
 }
 
@@ -144,20 +151,7 @@ if ($file)
 }
 // Prepare standard upgrade
 else {
-    // Collect standard database upgrades.
-    $dbupgrades = phorum_dbupgrade_getupgrades();
-
-    // Collect module database upgrades.
-    // First update module information if needed.
-    require_once('./include/api/modules.php');
-    $updates = phorum_api_modules_check_updated_info();
-    if (!empty($updates)) { phorum_api_modules_save(); }
-
-    // Check if there are modules that require a database layer upgrade.
-    $modupgrades = phorum_api_modules_check_updated_dblayer();
-
-    // Build the final list of upgrades.
-    $upgrades = $dbupgrades + $modupgrades;
+    $upgrades = phorum_dbupgrade_getupgrades();
 }
 
 // Run upgrades until we are up to date.

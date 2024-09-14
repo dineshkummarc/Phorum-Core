@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,300 +15,251 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_ADMIN")) return;
+    if(!defined("PHORUM_ADMIN")) return;
 
-require_once './include/api/forums.php';
-require_once PHORUM_PATH.'/include/api/lang.php';
-require_once PHORUM_PATH.'/include/api/template.php';
+    $error="";
+    $setvroot=false; // is this folder set as vroot?
 
-$errors = array();
+    if(count($_POST)){
 
-// ----------------------------------------------------------------------
-// Handle posted form data
-// ----------------------------------------------------------------------
+        // Post data preprocessing.
+        foreach($_POST as $field=>$value){
 
-if (count($_POST))
-{
-    // Build a folder data array based on the posted data.
-    $folder = array();
-    $enable_vroot = FALSE;
-    foreach ($_POST as $field => $value)
-    {
-        // The "vroot" field is a virtual field for this form. It only
-        // indicates that the folder has to be activated as a vroot.
-        // In the data, the vroot indicates to what vroot a forum or
-        // folder belongs. To make a certain folder a vroot folder, we
-        // have to set the vroot field to the same value as the forum_id
-        // field later on.
-        if ($field == 'vroot') {
-            $enable_vroot = TRUE;
-        }
-        // All other fields are simply copied.
-        elseif (array_key_exists($field, $PHORUM['API']['folder_fields'])) {
-          $folder[$field] = $value;
-        }
-    }
+            switch($field){
 
-    // Was a title filled in for the folder?
-    if (!defined('PHORUM_DEFAULT_OPTIONS') && trim($folder['name']) == '') {
-        $errors[] = 'The "Title" field is empty. Please, fill in a title.';
-    }
-
-    // If there were no errors, then store the data in the database.
-    if (empty($errors))
-    {
-        // Some statically assigned fields.
-        $folder['folder_flag'] = 1;
-        // For new folders.
-        if (!defined('PHORUM_EDIT_FOLDER')) {
-            $folder['forum_id'] = NULL;
+                case "name":
+                    $value = trim($value);
+                    $_POST["name"] = $value;
+                    if($value == ""){
+                        $error='Please fill in Title.';
+                    }
+                    break;
+                case "vroot":
+                    // did we set this folder as vroot?
+                    // existing folder new vroot for everything below
+                    if($value > 0 &&
+                        (isset($_POST['forum_id']) && $_POST['forum_id'])) {
+                        $setvroot=true;
+                    // new folder which is vroot for everything below
+                    } elseif($value > 0 && !defined("PHORUM_EDIT_FOLDER")) {
+                        $setvroot=true;
+                    }
+                    break;
+            }
         }
 
-        // Store the forum data in the database.
-        $newfolder = phorum_api_forums_save($folder);
+        if(empty($error)){
+            $_POST = phorum_hook("admin_editfolder_form_save", $_POST);
+            if (isset($_POST["error"])) {
+                $error = $_POST["error"];
+                unset($_POST["error"]);
+            }
+        }
 
-        // Handle enabling and disabling vroot support.
-        // Currently stored as a vroot folder?
-        if ($newfolder['vroot'] == $newfolder['forum_id']) {
-            // And requested to disable the vroot?
-            if (! $enable_vroot) {
-                phorum_api_forums_save(array(
-                    'forum_id' => $newfolder['forum_id'],
-                    'vroot'    => $newfolder['parent_id']
+        // we need the old folder for vroots ... see below
+        if(defined("PHORUM_EDIT_FOLDER")){
+            $cur_folder_id=$_POST['forum_id'];
+            $oldfolder_tmp=phorum_db_get_forums($cur_folder_id);
+            $oldfolder=array_shift($oldfolder_tmp);
+        } else {
+            $oldfolder=array('vroot'=>0,'parent_id'=>0);
+        }
+
+        if(empty($error)){
+            unset($_POST["module"]);
+            unset($_POST["phorum_admin_token"]);
+            unset($_POST["vroot"]); // we set it separately below
+
+            // update the folder
+            if(defined("PHORUM_EDIT_FOLDER")){
+                $cur_folder_id=$_POST['forum_id'];
+                $res=phorum_db_update_forum($_POST);
+            // add the folder
+            } else {
+
+                $res=phorum_db_add_forum($_POST);
+                $cur_folder_id=$res;
+                $built_paths = phorum_admin_build_path_array($cur_folder_id);
+                phorum_db_update_forum(array(
+                    'forum_id'   => $cur_folder_id,
+                    'forum_path' => $built_paths[$cur_folder_id]
                 ));
             }
-        }
-        // Currently not a vroot folder?
-        else {
-            // And requested to enable the vroot?
-            if ($enable_vroot) {
-                phorum_api_forums_save(array(
-                    'forum_id' => $newfolder['forum_id'],
-                    'vroot'    => $newfolder['forum_id']
-                ));
+
+            // check for changes which require a forum-path update
+            $setforumpath = false;
+            if(defined("PHORUM_EDIT_FOLDER")){
+                if($oldfolder['name'] != $_POST['name'] ||
+                   $oldfolder['parent_id'] != $_POST['parent_id'] ||
+                   $setvroot) {
+                       $setforumpath = true;
+                   }
+            // add the folder
             }
-        }
 
-        // The message to show on the next page.
-        $okmsg = "Folder \"{$folder['name']}\" was successfully saved";
 
-        // The URL to redirect to.
-        $url = phorum_admin_build_url(array('module=default',"parent_id=".$folder['parent_id'],'okmsg='.rawurlencode($okmsg)), TRUE);
+            // other db-operations done, now doing the work for vroots
+            if($res){
 
-        phorum_api_redirect($url);
-        exit;
-    }
-}
+                $cur_folder_tmp=phorum_db_get_forums($cur_folder_id);
+                $cur_folder=array_shift($cur_folder_tmp);
 
-// ----------------------------------------------------------------------
-// Handle initializing the form for various cases
-// ----------------------------------------------------------------------
+                if($setforumpath) {
+                    $setforum_children = phorum_admin_get_descending($cur_folder_id);
 
-// Initialize the form for editing an existing folder.
-elseif (defined("PHORUM_EDIT_FOLDER"))
-{
-    $folder_id = isset($_POST['forum_id'])
-               ? $_POST['forum_id'] : $_GET['forum_id'];
-    $folder = phorum_api_forums_by_forum_id(
-        $folder_id, PHORUM_FLAG_INCLUDE_INACTIVE
-    );
-}
+                    $built_paths = phorum_admin_build_path_array();
 
-// Initialize the form for creating a new folder.
-else
-{
-    $parent_id = $PHORUM['vroot'];
-    if (!empty($_GET['parent_id'])) {
-        $parent_id = (int) $_GET['parent_id'];
-    }
+                    phorum_db_update_forum(array(
+                        'forum_id'   => $cur_folder_id,
+                        'forum_path' => $built_paths[$cur_folder_id]
+                    ));
 
-    // Prepare a folder data array for initializing the form.
-    $folder = phorum_api_forums_save(array(
-        'forum_id'    => NULL,
-        'folder_flag' => 1,
-        'inherit_id'  => 0,
-        'parent_id'   => $parent_id,
-        'name'        => ''
-    ), PHORUM_FLAG_PREPARE);
-}
+                    if(is_array($setforum_children) && count($setforum_children)) {
 
-extract($folder);
+                        foreach ($setforum_children as $child_forum_id => $child) {
+                            phorum_db_update_forum(array(
+                                'forum_id'   => $child['forum_id'],
+                                'forum_path' => $built_paths[$child_forum_id]
+                            ));
+                        }
 
-// The vroot parameter in the form is a checkbox, while the value in
-// the database is a forum_id. We have to do a translation here.
-if (isset($enable_vroot)) { // set when posting a form
-    $vroot = $enable_vroot ? 1 : 0;
-} elseif (!empty($forum_id) && $vroot == $forum_id) {
-    $vroot = 1;
-} else {
-    $foreign_vroot = $vroot;
-    $vroot = 0;
-}
-
-// If we are inheriting settings from a forum,
-// then disable the inherited fields in the input.
-$disabled_form_input = '';
-if ($inherit_id != -1) {
-    $disabled_form_input = 'disabled="disabled"';
-}
-
-// ----------------------------------------------------------------------
-// Handle displaying the folder settings form
-// ----------------------------------------------------------------------
-
-if ($errors) {
-    phorum_admin_error(join("<br/>", $errors));
-}
-
-require_once './include/admin/PhorumInputForm.php';
-
-$frm = new PhorumInputForm ("", "post");
-
-// Edit an existing folder.
-if (defined("PHORUM_EDIT_FOLDER"))
-{
-    $frm->hidden("module", "editfolder");
-    $frm->hidden("forum_id", $forum_id);
-    $title = "Edit existing folder";
-}
-// Create a new folder.
-else
-{
-    $frm->hidden("module", "newfolder");
-    $title="Add A Folder";
-    $folders  = $folder_data;
-}
-
-$frm->addbreak($title);
-
-$frm->addrow("Folder Title", $frm->text_box("name", $name, 30));
-
-$frm->addrow("Folder Description", $frm->textarea("description", $description, $cols=60, $rows=10, "style=\"width: 100%;\""), "top");
-
-$parent_id_options = phorum_api_forums_get_parent_id_options($forum_id);
-$frm->addrow(
-    "Put this forum below folder",
-    $frm->select_tag('parent_id', $parent_id_options, $parent_id)
-);
-
-$frm->addrow("Make this forum visible in the forum index?", $frm->select_tag("active", array("No", "Yes"), $active));
-
-$row = $frm->addrow("Virtual Root for descending forums/folders", $frm->checkbox("vroot","1","enabled",($vroot)?1:0));
-$frm->addhelp($row,
-    "Virtual Root for descending forums/folders",
-    "If you enable the virtual root feature for a folder, then this folder
-     will act as a separate Phorum installation. The folder will not be
-     visible in its parent folder anymore and if you visit the folder, it will
-     behave as if it were a Phorum root folder. This way you can run
-     multiple separated forums on a single Phorum installation.<br/><br/>
-     The users will be able to access all virtual root folders, unless you
-     use the permission system to setup different access rules."
-);
-if ($foreign_vroot > 0) {
-    $frm->addrow(
-        "This folder is in the Virtual Root of:",
-        $folders[$foreign_vroot]
-    );
-}
-
-$frm->addbreak("Inherit Folder Settings");
-
-$inherit_id_options = phorum_api_forums_get_inherit_id_options($forum_id);
-$row = $frm->addrow(
-    "Inherit the settings below this option from",
-    $frm->select_tag(
-        "inherit_id", $inherit_id_options, $inherit_id
-    ) . $add_inherit_text
-);
-
-$frm->addbreak("Display Settings");
-
-$frm->addrow("Template", $frm->select_tag("template", phorum_api_template_list(TRUE), $template, $disabled_form_input));
-
-$frm->addrow("Language", $frm->select_tag("language", phorum_api_lang_list(TRUE), $language, $disabled_form_input));
-
-phorum_api_hook("admin_editfolder_form", $frm, $forum_settings);
-
-$frm->show();
-
-?>
-
-<script type="text/javascript">
-//<![CDATA[
-
-// Handle changes to the setting inheritance select list.
-$PJ('select[name=inherit_id]').change(function updateInheritedFields()
-{
-    var inherit = $PJ('select[name=inherit_id]').val();
-
-    // No inheritance. All fields will be made read/write.
-    if (inherit == -1) {
-        updateInheritedSettings(null);
-    }
-    // An inheritance option is selected. Retrieve the settings for
-    // the selection option and update the form with those. All
-    // inherited settings are made read only.
-    else {
-        Phorum.call({
-            call: 'getforumsettings',
-            forum_id: inherit,
-            cache_id: 'forum_settings_' + inherit,
-            onSuccess: function (data) {
-                updateInheritedSettings(data);
-            },
-            onFailure: function (err) {
-                alert("Could not retrieve inherited settings: " + err);
-            }
-        });
-    }
-});
-
-function updateInheritedSettings(data)
-{
-    // Find the settings form.
-    $PJ('input.input-form-submit').parents('form').each(function (idx, frm) {
-        // Loop over all form fields.
-        $PJ(frm).find('input[type!=hidden],textarea,select')
-            .each(function (idx, f) {
-
-                $f = $PJ(f);
-
-                // Skip the form submit button.
-                if ($f.hasClass('input-form-submit')) return;
-
-                // SKip fields that are not inherited.
-                if (f.name == 'name' ||
-                    f.name == 'description' ||
-                    f.name == 'parent_id' ||
-                    f.name == 'active' ||
-                    f.name == 'vroot' ||
-                    f.name == 'inherit_id') return;
-
-                // When no data is provided, then we make the field read/write.
-                if (!data)
-                {
-                    $PJ(f).removeAttr('disabled');
-                }
-                // Data is provided. Fill the default value and make the
-                // field read only.
-                else
-                {
-                    // Some browsers will not update the field when it
-                    // is disabled. Therefor, we temporarily enable it here.
-                    $PJ(f).removeAttr('disabled');
-
-                    if (data[f.name] !== undefined) {
-                        $f.val(data[f.name]);
                     }
 
-                    $PJ(f).attr('disabled', 'disabled');
                 }
-            });
-        });
-}
-// ]]>
-</script>
 
+
+                if (!$setvroot && (
+                    // we had a vroot before but now we removed it
+                    ($oldfolder['vroot'] && $oldfolder['vroot'] == $cur_folder_id) ||
+                    // or we moved this folder somewhere else
+                    ($oldfolder['parent_id'] != $cur_folder['parent_id'])
+                   )) {
+
+                    // get the parent_id and set its vroot (if its a folder)
+                    // to the desc folders/forums
+                    if($cur_folder['parent_id'] > 0) { // is it a real folder?
+                        $parent_folder=phorum_db_get_forums($cur_folder['parent_id']);
+
+                        // then set the vroot to the vroot of the parent-folder (be it 0 or a real vroot)
+                        phorum_admin_set_vroot($cur_folder_id,$parent_folder[$cur_folder['parent_id']]['vroot'],$cur_folder_id);
+
+                    } else { // just default root ...
+                        phorum_admin_set_vroot($cur_folder_id,0,$cur_folder_id);
+                    }
+
+                // we have now set this folder as vroot
+                } elseif($setvroot && ($oldfolder['vroot']==0 || $oldfolder['vroot'] != $cur_folder_id)) {
+                    if(!phorum_admin_set_vroot($cur_folder_id)) {
+                        $error="Database error while setting virtual-root info.";
+                    }
+
+                } // is there an else?
+
+            } else {
+                $error="Database error while adding/updating folder.";
+            }
+        }
+
+        if(empty($error)) {
+            $redir_url = phorum_admin_build_url(array('parent_id='.$cur_folder["parent_id"]), TRUE);
+            phorum_redirect_by_url($redir_url);
+            exit();
+        }
+
+        foreach($_POST as $key=>$value){
+            $$key=$value;
+        }
+
+        $forum_settings = $_POST;
+
+        if ($setvroot) {
+            $vroot = $_POST["forum_id"];
+        } else {
+            if ($_POST["forum_id"] != $oldfolder["vroot"]) {
+                $vroot = $oldfolder["vroot"];
+            } else {
+                $vroot = 0;
+            }
+        }
+        $forum_settings["vroot"] = $vroot;
+
+    } elseif(defined("PHORUM_EDIT_FOLDER")) {
+
+        $forums = phorum_db_get_forums($_REQUEST["forum_id"]);
+        $forum_settings = $forums[$_REQUEST["forum_id"]];
+        extract($forum_settings);
+    }
+
+    if($error){
+        phorum_admin_error($error);
+    }
+
+    include_once "./include/admin/PhorumInputForm.php";
+
+    $frm = new PhorumInputForm ("", "post");
+
+    $folder_data=phorum_get_folder_info();
+
+    if(defined("PHORUM_EDIT_FOLDER")){
+        $frm->hidden("module", "editfolder");
+        $frm->hidden("forum_id", $forum_id);
+        $title="Edit Folder";
+
+        $this_folder=$folder_data[$_REQUEST["forum_id"]];
+
+        foreach($folder_data as $folder_id=> $folder){
+
+            // remove children from the list
+            if($folder_id!=$_REQUEST["forum_id"] && substr($folder, 0, strlen($this_folder)+2)!="$this_folder::"){
+                $folders[$folder_id]=$folder;
+            }
+        }
+
+        if($vroot == $forum_id) {
+            $vroot=1;
+        } else {
+            $foreign_vroot=$vroot;
+            $vroot=0;
+        }
+
+    } else {
+        $frm->hidden("module", "newfolder");
+        $title="Add A Folder";
+
+        $folders=$folder_data;
+        $vroot=0;
+        $active=1;
+        $template=$PHORUM["default_forum_options"]["template"];
+
+    }
+
+    $frm->hidden("folder_flag", "1");
+
+    $frm->addbreak($title);
+
+    $frm->addrow("Folder Title", $frm->text_box("name", $name, 30));
+
+    $frm->addrow("Folder Description", $frm->textarea("description", $description, $cols=60, $rows=10, "style=\"width: 100%;\""), "top");
+
+    $frm->addrow("Folder", $frm->select_tag("parent_id", $folders, $parent_id));
+
+    $frm->addrow("Visible", $frm->select_tag("active", array("No", "Yes"), $active));
+
+    $frm->addbreak("Display Settings");
+
+    $frm->addrow("Template", $frm->select_tag("template", phorum_get_template_info(), $template));
+
+    $frm->addrow("Language", $frm->select_tag("language", phorum_get_language_info(), $language));
+
+    $frm->addrow("Virtual Root for descending forums/folders", $frm->checkbox("vroot","1","enabled",($vroot)?1:0));
+    if($foreign_vroot > 0) {
+        $frm->addrow("This folder is in the Virtual Root of:",$folders[$foreign_vroot]);
+    }
+
+    phorum_hook("admin_editfolder_form", $frm, $forum_settings);
+
+    $frm->show();
+
+?>

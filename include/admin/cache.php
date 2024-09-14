@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -17,16 +18,41 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined( "PHORUM_ADMIN")) return;
+if ( !defined( "PHORUM_ADMIN" ) ) return;
 
-$error = "";
-$okmsg = "";
+$error = '';
+$okmsg = '';
 
 if ( count( $_POST ) ) {
     $new_settings = array();
     // set the defaults
     foreach( $_POST as $field => $value ) {
         switch ( $field ) {
+
+            case "cache":
+
+                if ( empty( $value ) ) {
+                    $new_settings[$field] = "/tmp";
+                } elseif ( !file_exists( $value ) ) {
+                    $error .= 'This cache directory does not exist.  Please create it with the proper permissions. ';
+                } else {
+                    $new_settings[$field] = $value;
+                }
+
+                break;
+
+            case "cache_layer":
+
+                if ( empty( $value ) ) {
+                    $new_settings[$field] = "file";
+                } elseif ( !file_exists( './include/cache/'.$value.'.php' ) ) {
+                    $error .= 'This cache layer ($value) does not exist. ';
+                } else {
+                    $new_settings[$field] = $value;
+                }
+
+                break;
+
             case "cache_rss":
             case "cache_users":
             case "cache_messages":
@@ -42,14 +68,14 @@ if ( count( $_POST ) ) {
                 }
 
         }
-
-        if ( $error ) break;
     }
 
     if ( empty( $error ) ) {
         unset( $_POST["module"] );
 
-        if ( $PHORUM['DB']->update_settings( $new_settings ) ) {
+        //print_var($new_settings);
+
+        if ( phorum_db_update_settings( $new_settings ) ) {
             $okmsg = "Settings updated";
             // reset those to the global array
             foreach($new_settings as $key => $val) {
@@ -67,11 +93,27 @@ if ( $error ) {
     phorum_admin_okmsg ( $okmsg);
 }
 
-require_once './include/admin/PhorumInputForm.php';
+include_once "./include/admin/PhorumInputForm.php";
 
 $frm = new PhorumInputForm ( "", "post" );
 $frm->hidden( "module", "cache" );
 $frm->addbreak( "Phorum Cache Settings" );
+$row=$frm->addrow( "Cache Directory", $frm->text_box( "cache", $PHORUM["cache"], 30 ) );
+$frm->addhelp($row, "Cache Directory",
+    "Caching is used to take some load off the database and web server.
+     The cache directory is used for caching preprocessed Phorum templates
+     and for caching data in case \"file system based\" is selected as
+     the cache layer below.<br />
+     <br />
+     For most installations, it will be fine to the default temp directory
+     for the server (/tmp on UNIX systems and C:\\Windows\\Temp for Windows
+     system).<br />
+     <br />
+     If your server has PHP Safe Mode enabled, you will need to create a
+     directory under your Phorum directory and make it writable by the web
+     server (you can use the directory \"./cache\" which was included in the
+     Phorum distribution for this purpose)."
+);
 
 $frm->addbreak("Which template data to cache (uses cache directory)");
 
@@ -101,27 +143,28 @@ $row=$frm->addrow( "Enable Caching Messages:", $frm->select_tag( "cache_messages
 $row=$frm->addrow( "Enable Caching Banlists:", $frm->select_tag( "cache_banlists", array( "No", "Yes" ), $PHORUM["cache_banlists"] ) );
 $row=$frm->addrow( "Enable Caching RSS-Feeds:", $frm->select_tag( "cache_rss", array( "No", "Yes" ), $PHORUM["cache_rss"] ) );
 
-$frm->addbreak("Settings that are set from include/config/cache.php");
+$frm->addbreak("Cache-Layer - make sure you have the prerequesites for the layer installed");
 
-$row=$frm->addrow( "Cache Directory", $PHORUM['CACHECONFIG']['directory']);
-$frm->addhelp($row, "Cache Directory",
-    "Caching is used to take some load off the database and web server.
-     The cache directory is used for caching preprocessed Phorum templates
-     and for caching data in case \"file\" is set as the cache layer.<br/>
-     <br/>
-     For most installations, it will be fine to use the default temp directory
-     for the server (/tmp on UNIX systems and C:\\Windows\\Temp for Windows
-     systems).<br/>
-     <br/>
-     If your server has PHP Safe Mode enabled, you will need to create a
-     directory under your Phorum directory and make it writable by the web
-     server (you can use the directory \"./cache\" which was included in the
-     Phorum distribution for this purpose)."
-);
-$frm->addrow("Cache-Layer", $PHORUM['CACHECONFIG']['type']);
+$layer_check = "";
+if($PHORUM['cache_layer'] == 'memcached') {
+    if(function_exists('memcache_connect')) {
+        $layer_check = "( Memcached extension found )";
+    } else {
+        $layer_check = "<strong>( Memcached extension NOT found )</strong>";
+    }
+}
+if($PHORUM['cache_layer'] == 'apc') {
+    if(function_exists('apc_fetch')) {
+        $layer_check = "( APC extension found )";
+    } else {
+        $layer_check = "<strong>( APC extension NOT found )</strong>";
+    }
+}
+
+$row=$frm->addrow( "Select the cache layer to use:", $frm->select_tag( "cache_layer", array( "file" => 'file system based', "memcached" => 'memcached based', "apc" => 'APC based'), $PHORUM["cache_layer"] )." $layer_check" );
 
 // calling mods
-$frm=phorum_api_hook("admin_cache", $frm);
+$frm=phorum_hook("admin_cache", $frm);
 
 $frm->show();
 

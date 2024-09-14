@@ -31,7 +31,7 @@
  * with the user API documentation.
  *
  * @package    PhorumAPI
- * @subpackage User
+ * @subpackage UserAPI
  * @copyright  2016, Phorum Development Team
  * @license    Phorum License, http://www.phorum.org/license.txt
  *
@@ -39,18 +39,18 @@
  *
  * @todo Document what fields are in a user record.
  *
+ * @todo Create in line docs for all hook calls.
+ *
  */
 
-// {{{ Constant and variable definitions
+if (!defined('PHORUM')) return;
 
+// {{{ Constant and variable definitions
 /**
- * If a user API is written as a replacement for the standard Phorum
- * user API, where the replacement API is incompatible with the
- * standard API, then this define should be set to FALSE. That will
- * disable the user management functions in the admin interface.
- *
- * @todo Maybe we should deprecate this construction. We have other user
- *       integration options nowadays.
+ * If a user API is written as a replacement for the standard Phorum user API,
+ * where the replacement API is incompatible with the standard API, then this
+ * define should be set to FALSE. That will disable the user management
+ * functions in the admin interface.
  */
 define("PHORUM_ORIGINAL_USER_CODE", TRUE);
 
@@ -58,123 +58,121 @@ define("PHORUM_ORIGINAL_USER_CODE", TRUE);
  * Used for identifying long term sessions. The value is used as
  * the name for the session cookie for long term sessions.
  */
-define( 'PHORUM_SESSION_LONG_TERM' , 'phorum_session_v5' );
+define( 'PHORUM_SESSION_LONG_TERM' ,   'phorum_session_v5' );
 
 /**
  * Used for identifying short term sessions. The value is used as
  * the name for the session cookie for short term sessions
  * (this is used by the tighter authentication scheme).
  */
-define( 'PHORUM_SESSION_SHORT_TERM', 'phorum_session_st' );
+define( 'PHORUM_SESSION_SHORT_TERM',   'phorum_session_st' );
 
 /**
  * Used for identifying admin sessions. The value is used as
  * the name for the session cookie for admin sessions.
  */
-define( 'PHORUM_SESSION_ADMIN', 'phorum_admin_session' );
+define( 'PHORUM_SESSION_ADMIN',        'phorum_admin_session' );
 
 /**
  * Function call parameter, which tells various functions that
  * a front end forum session has to be handled.
  */
-define('PHORUM_FORUM_SESSION', 1);
+define('PHORUM_FORUM_SESSION',         1);
 
 /**
  * Function call parameter, which tells various functions that
  * an admin back end session has to be handled.
  */
-define('PHORUM_ADMIN_SESSION', 2);
+define('PHORUM_ADMIN_SESSION',         2);
 
 
 /**
- * Function call flag that tells {@link phorum_api_user_set_active_user()}
+ * Function call flag, which tells {@link phorum_api_user_set_active_user()}
  * that the short term forum session has to be activated.
  */
-define('PHORUM_FLAG_SESSION_ST', 1);
+define('PHORUM_FLAG_SESSION_ST',       1);
 
 /**
- * Function call flag, which tells {@link phorum_api_user_save()}
- * that the password field should be stored as is. This can be used
- * to feed Phorum MD5 encrypted passwords. Normally, the password
- * field would be MD5 encrypted by the function. This will keep the
- * phorum_api_user_save() function from double encrypting the password.
+ * Function call flag, which tells {@link phorum_api_user_save()} that the
+ * password field should be stored as is.
+ * This can be used to feed Phorum MD5 encrypted passwords. Normally,
+ * the password field would be MD5 encrypted by the function. This will
+ * keep the phorum_api_user_save() function from double encrypting the password.
  */
-define('PHORUM_FLAG_RAW_PASSWORD', 1);
+define('PHORUM_FLAG_RAW_PASSWORD',     1);
 
 /**
- * Function call flag that tells {@link phorum_api_user_get_display_name()}
- * that the returned display names have to be HTML formatted, so they can
- * be used for showing the name in HTML pages.
+ * Function call flag, which tells {@link phorum_api_user_get_display_name()}
+ * that the returned display names have to be HTML formatted, so they can be
+ * used for showing the name in HTML pages.
  */
-define('PHORUM_FLAG_HTML', 1);
+define('PHORUM_FLAG_HTML',             1);
 
 /**
- * Function call flag that tells {@link phorum_api_user_get_display_name()}
+ * Function call flag, which tells {@link phorum_api_user_get_display_name()}
  * that the returned display names should be stripped down to plain text
  * format, so they can be used for showing the name in things like mail
  * messages and message quoting.
  */
-define('PHORUM_FLAG_PLAINTEXT', 2);
+define('PHORUM_FLAG_PLAINTEXT',        2);
 
 /**
- * Function call parameter that tells
- * {@link phorum_api_user_session_create()} that session ids have to be
- * reset to new values as far as that is sensible for a newly
- * logged in user.
+ * Function call parameter, which tells {@link phorum_api_user_session_create()}
+ * that session ids have to be reset to new values as far as that is sensible
+ * for a newly logged in user.
  */
-define('PHORUM_SESSID_RESET_LOGIN', 1);
+define('PHORUM_SESSID_RESET_LOGIN',    1);
 
 /**
- * Function call parameter, which tells
- * {@link phorum_api_user_session_create()} that all session ids have to
- * be reset to new values. This is for example appropriate after a user
- * changed the password (so active sessions on other computers or
- * browsers will be ended).
+ * Function call parameter, which tells {@link phorum_api_user_session_create()}
+ * that all session ids have to be reset to new values. This is for example
+ * appropriate after a user changed the password (so active sessions on
+ * other computers or browsers will be ended).
  */
-define('PHORUM_SESSID_RESET_ALL', 2);
+define('PHORUM_SESSID_RESET_ALL',      2);
 
 /**
  * Function call parameter, which tells {@link phorum_api_user_get_list()}
  * that all users have to be returned.
  */
-define('PHORUM_GET_ALL', 0);
+define('PHORUM_GET_ALL',               0);
 
 /**
  * Function call parameter, which tells {@link phorum_api_user_get_list()}
  * that all active users have to be returned.
  */
-define('PHORUM_GET_ACTIVE', 1);
+define('PHORUM_GET_ACTIVE',            1);
 
 /**
  * Function call parameter, which tells {@link phorum_api_user_get_list()}
  * that all inactive users have to be returned.
  */
-define('PHORUM_GET_INACTIVE', 2);
+define('PHORUM_GET_INACTIVE',          2);
 
 /**
- * Function call parameter that tells {@link phorum_api_user_check_access()}
+ * Function call parameter, which tells {@link phorum_api_user_check_access()}
  * and {@link phorum_api_user_check_group_access()} to return an array
  * of respectively forums or groups for which a user is granted access.
  */
 define('PHORUM_ACCESS_LIST', -1);
 
 /**
- * Function call parameter that tells {@link phorum_api_user_check_access()}
+ * Function call parameter, which tells {@link phorum_api_user_check_access()}
  * and {@link phorum_api_user_check_group_access()} to check if the user
  * is granted access for respectively any forum or group.
  */
 define('PHORUM_ACCESS_ANY', -2);
 
 /**
- * User status, indicating that the user has not yet confirmed the
- * registration by email and that a user moderator will have to approve
- * the registration as well.
+ * User status, indicating that the user has not yet confirmed the registration
+ * by email and that a user moderator will have to approve the registration
+ * as well.
  */
 define("PHORUM_USER_PENDING_BOTH", -3);
 
 /**
- * User status, indicating that the user has not yet confirmed the
- * registration by email.
+ * User status, indicating that the user has not yet confirmed the registration
+ * by email.
  */
 define("PHORUM_USER_PENDING_EMAIL", -2);
 
@@ -190,8 +188,8 @@ define("PHORUM_USER_PENDING_MOD", -1);
 define("PHORUM_USER_INACTIVE", 0);
 
 /**
- * User status, indicating that the registration has been completed
- * and that the user can access the forums.
+ * User status, indicating that the registration has been completed and that
+ * the user can access the forums.
  */
 define("PHORUM_USER_ACTIVE", 1);
 
@@ -216,8 +214,7 @@ define('PHORUM_USER_ALLOW_EDIT', 4);
 define('PHORUM_USER_ALLOW_NEW_TOPIC', 8);
 
 /**
- * Permission flag which allows users to attach files
- * to their forum messages.
+ * Permission flag which allows users to attach files to their forum messages.
  */
 define('PHORUM_USER_ALLOW_ATTACH', 32);
 
@@ -266,72 +263,72 @@ define("PHORUM_SUBSCRIPTION_NONE", -1);
 define("PHORUM_SUBSCRIPTION_MESSAGE", 0);
 
 /**
- * Subscription type, which tells Phorum to periodially send a mail
- * message, containing a list of new messages in forums or threads
- * that a user is subscribed to. There is currently no support for
- * this type of subscription in the Phorum core code.
+ * Subscription type, which tells Phorum to periodially send a mail message,
+ * containing a list of new messages in forums or threads that a user is
+ * subscribed to. There is currently no support for this type of subscription
+ * in the Phorum core code.
  */
 define("PHORUM_SUBSCRIPTION_DIGEST", 1);
 
 /**
- * Subscription type, which tells Phorum to make the forums or threads
- * that a user is subscribed to accessible from the followed threads
- * interface in the control center. No mail is sent for new messages,
- * but the user can check for new messages using that interface.
+ * Subscription type, which tells Phorum to make the forums or threads that
+ * a user is subscribed to accessible from the followed threads interface in
+ * the control center. No mail is sent for new messages, but the user can
+ * check for new messages using that interface.
  */
 define("PHORUM_SUBSCRIPTION_BOOKMARK", 2);
-
-global $PHORUM;
 
 /**
  * This array describes user data fields. It is mainly used internally
  * for configuring how to handle the fields and for doing checks on them.
  */
-$PHORUM['API']['user_fields'] = array
+$GLOBALS['PHORUM']['API']['user_fields'] = array
 (
-    // Fields that are really in the Phorum users table.
-    'user_id'                 => 'int',
-    'username'                => 'string',
-    'real_name'               => 'string',
-    'display_name'            => 'string',
-    'password'                => 'string',
-    'password_temp'           => 'string',
-    'sessid_lt'               => 'string',
-    'sessid_st'               => 'string',
-    'sessid_st_timeout'       => 'string',
-    'email'                   => 'string',
-    'email_temp'              => 'string',
-    'hide_email'              => 'bool',
-    'active'                  => 'int',
-    'admin'                   => 'bool',
-    'signature'               => 'string',
-    'posts'                   => 'int',
-    'date_added'              => 'int',
-    'date_last_active'        => 'int',
-    'last_active_forum'       => 'int',
-    'threaded_list'           => 'int',
-    'threaded_read'           => 'int',
-    'hide_activity'           => 'bool',
-    'show_signature'          => 'bool',
-    'email_notify'            => 'int',
-    'pm_email_notify'         => 'bool',
-    'tz_offset'               => 'float',
-    'is_dst'                  => 'bool',
-    'user_language'           => 'string',
-    'user_template'           => 'string',
-    'moderation_email'        => 'bool',
-    'settings_data'           => 'array',
+  // Fields that are really in the Phorum users table.
+  'user_id'                 => 'int',
+  'username'                => 'string',
+  'real_name'               => 'string',
+  'display_name'            => 'string',
+  'password'                => 'string',
+  'password_temp'           => 'string',
+  'sessid_lt'               => 'string',
+  'sessid_st'               => 'string',
+  'sessid_st_timeout'       => 'string',
+  'email'                   => 'string',
+  'email_temp'              => 'string',
+  'hide_email'              => 'bool',
+  'active'                  => 'int',
+  'admin'                   => 'bool',
+  'signature'               => 'string',
+  'posts'                   => 'int',
+  'date_added'              => 'int',
+  'date_last_active'        => 'int',
+  'last_active_forum'       => 'int',
+  'threaded_list'           => 'int',
+  'threaded_read'           => 'int',
+  'hide_activity'           => 'bool',
+  'show_signature'          => 'bool',
+  'email_notify'            => 'int',
+  'pm_email_notify'         => 'bool',
+  'tz_offset'               => 'float',
+  'is_dst'                  => 'bool',
+  'user_language'           => 'string',
+  'user_template'           => 'string',
+  'moderation_email'        => 'bool',
+  'moderator_data'          => 'array',
+  'settings_data'           => 'array',
+  'force_password_change'   => 'bool',
 
-    // Fields that are used for passing on information about user related,
-    // data, which is not stored in a standard user table field.
-    'forum_permissions'      => 'array',
+   // Fields that are used for passing on information about user related,
+   // data, which is not stored in a standard user table field.
+   'forum_permissions'      => 'array',
 
-    // Fields that we do not use for saving data (yet?), but which might
-    // be in the user data (e.g. if we store a user data array like it was
-    // returned by phorum_api_user_get()).
-    'groups'                 => NULL,
-    'group_permissions'      => NULL,
-    'permissions'            => NULL,
+   // Fields that we do not use for saving data (yet?), but which might
+   // be in the user data (e.g. if we store a user data array like it was
+   // returned by phorum_api_user_get()).
+   'groups'                 => NULL,
+   'group_permissions'      => NULL,
+   'permissions'            => NULL,
 );
 
 // }}}
@@ -402,6 +399,8 @@ function phorum_api_user_save($user, $flags = 0)
 {
     global $PHORUM;
 
+    include_once('./include/api/custom_profile_fields.php');
+
     // $user must be an array.
     if (!is_array($user)) {
         trigger_error(
@@ -414,8 +413,7 @@ function phorum_api_user_save($user, $flags = 0)
     // We need at least the user_id field.
     if (!array_key_exists('user_id', $user)) {
         trigger_error(
-            'phorum_api_user_save(): missing field "user_id" ' .
-            'in user data array',
+            'phorum_api_user_save(): missing field "user_id" in user data array',
             E_USER_ERROR
         );
         return NULL;
@@ -431,24 +429,12 @@ function phorum_api_user_save($user, $flags = 0)
     // Check if we are handling an existing or new user.
     $existing = NULL;
     if ($user['user_id'] !== NULL) {
-        $existing = phorum_api_user_get($user['user_id'], TRUE);
+        $existing = phorum_api_user_get($user['user_id'], TRUE, TRUE, TRUE);
     }
 
     // Create a user data array that is understood by the database layer.
-    // If we are updating an existing user record, then we start out with
-    // some data from that record, otherwise we start with a clean slate.
-    $dbuser = array();
-    if ($existing)
-    {
-        // To identify the record to update.
-        $dbuser['user_id']   = $existing['user_id'];
-
-        // To accommodate for the username + email checks and the
-        // display_name update from below.
-        $dbuser['username']  = $existing['username'];
-        $dbuser['email']     = $existing['email'];
-        $dbuser['real_name'] = $existing['real_name'];
-    }
+    // We start out with the existing record, if we have one.
+    $dbuser = $existing === NULL ? array() : $existing;
 
     // Merge in the fields from the $user argument.
     foreach ($user as $fld => $val) {
@@ -456,19 +442,30 @@ function phorum_api_user_save($user, $flags = 0)
     }
 
     // Initialize storage for custom profile field data.
-    $user_customfield_data = array();
+    $user_data = array();
 
     // Check and format the user data fields.
     foreach ($dbuser as $fld => $val)
     {
-        // Determine the field type.
+        // Determine the field type that we are handling.
+        $fldtype = NULL;
+        $custom  = NULL;
+        // Check if we are handling a custom profile field. We asume that any
+        // field that is not in the user_fields array is a custom profile
+        // field. If we find that it isn't such field, then we will ignore
+        // the field (it's either a field that was manually added to the
+        // user table or a custom profile field that was just deleted).
         if (!array_key_exists($fld, $PHORUM['API']['user_fields'])) {
-            $fldtype = 'custom_profile_field';
+            $custom = phorum_api_custom_profile_field_byname($fld);
+            if ($custom === NULL) {
+                $fldtype = 'ignore_field';
+            } else {
+                $fldtype = 'custom_profile_field';
+            }
         } else {
             $fldtype = $PHORUM['API']['user_fields'][$fld];
         }
 
-        // Process the field data.
         switch ($fldtype)
         {
             // A field that has to be fully ignored.
@@ -480,7 +477,7 @@ function phorum_api_user_save($user, $flags = 0)
                 break;
 
             case 'float':
-              $dbuser[$fld] = $val === NULL ? NULL : (float) $val;
+                $dbuser[$fld] = $val === NULL ? NULL : (float) $val;
                 break;
 
             case 'string':
@@ -497,15 +494,23 @@ function phorum_api_user_save($user, $flags = 0)
                 break;
 
             case 'custom_profile_field':
+                // Arrays and NULL values are left untouched.
+                // Other values are truncated to their configured field length.
+                if ($val !== NULL && !is_array($val)) {
+                    $val = substr($val, 0, $custom['length']);
+                }
+                $user_data[$custom['id']] = $val;
+                unset($dbuser[$fld]);
+                break;
 
-                $user_customfield_data[$fld] = $val;
+            case 'ignore_field':
                 unset($dbuser[$fld]);
                 break;
 
             default:
                 trigger_error(
                     'phorum_api_user_save(): Illegal field type used: ' .
-                    phorum_api_format_htmlspecialchars($fldtype),
+                    htmlspecialchars($fldtype),
                     E_USER_ERROR
                 );
                 return NULL;
@@ -513,6 +518,8 @@ function phorum_api_user_save($user, $flags = 0)
         }
     }
 
+    // Add the custom profile field data to the user data.
+    $dbuser['user_data'] = $user_data;
 
     // At this point, we should have a couple of mandatory fields available
     // in our data. Without these fields, the user record is not sane
@@ -550,29 +557,21 @@ function phorum_api_user_save($user, $flags = 0)
     // Handle password encryption.
     foreach (array('password', 'password_temp') as $fld)
     {
-        // Ignore handling if the field is not available when editing an
-        // existing user. When the field is not available for a new user,
-        // we will set a secure default for the field in the code below.
-        if ($existing && !array_key_exists($fld, $dbuser)) {
-            continue;
-        }
-
         // Sometimes, this function is (accidentally) called with existing
         // passwords in the data. Prevent duplicate encryption.
-        if ($existing && strlen($existing[$fld]) == 32 &&
+        if ($existing  && strlen($existing[$fld]) == 32 &&
             $existing[$fld] == $dbuser[$fld]) {
             continue;
         }
 
         // If the password field is empty, we should never store the MD5 sum
         // of an empty string as a safety precaution. Instead we store a
-        // string that will never work as a password. This could happen in
+        // string which will never work as a password. This could happen in
         // case of bugs in the code or in case external user auth is used
         // (in which case Phorum can have empty passwords, since the Phorum
         // passwords are not used at all).
-        if (!isset($dbuser[$fld])  ||
-            $dbuser[$fld] === ''   ||
-            $dbuser[$fld] === '*NO PASSWORD SET*') {
+        if (!isset($dbuser[$fld]) || $dbuser[$fld] === NULL ||
+            $dbuser[$fld] == '' || $dbuser[$fld] == '*NO PASSWORD SET*') {
             $dbuser[$fld] = '*NO PASSWORD SET*';
             continue;
         }
@@ -585,7 +584,7 @@ function phorum_api_user_save($user, $flags = 0)
     }
 
     // Determine the display name to use for the user. If the setting
-    // $PHORUM["custom_display_name"] is enabled (a "secret" setting that
+    // $PHORUM["custom_display_name"] is enabled (a "secret" setting which
     // cannot be changed through the admin settings, but only through
     // modules that consciously set it), then Phorum expects that the display
     // name is a HTML formatted display_name field, which is provided by
@@ -607,7 +606,7 @@ function phorum_api_user_save($user, $flags = 0)
     // to be provided in escaped HTML format.
     elseif (!isset($dbuser['display_name']) ||
             trim($dbuser['display_name']) == '') {
-        $dbuser['display_name'] = phorum_api_format_htmlspecialchars($dbuser['username']);
+        $dbuser['display_name'] = htmlspecialchars($dbuser['username'], ENT_QUOTES, $PHORUM['DATA']['HCHARSET']);
     }
 
     /**
@@ -647,23 +646,15 @@ function phorum_api_user_save($user, $flags = 0)
      *         $user['real_name'] = $real_name;
      *
      *         // Some fictional external system to keep in sync.
-     *         include "../coolsys.php";
+     *         include("../coolsys.php");
      *         coolsys_save($user);
      *
      *         return $user;
      *     }
      *     </hookcode>
      */
-    if (isset($PHORUM['hooks']['user_save']))
-    {
-        // Add the custom profile field data to the user data.
-        $dbuser['user_data'] = $user_customfield_data;
-
-        $dbuser = phorum_api_hook('user_save', $dbuser);
-
-        // retrieve the custom field data from the userdata again
-        $user_customfield_data = $dbuser['user_data'];
-        unset($dbuser['user_data']);
+    if (isset($PHORUM['hooks']['user_save'])) {
+        $dbuser = phorum_hook('user_save', $dbuser);
     }
 
     /**
@@ -720,41 +711,33 @@ function phorum_api_user_save($user, $flags = 0)
                 $orig_status == PHORUM_USER_PENDING_EMAIL ||
                 $orig_status == PHORUM_USER_PENDING_MOD) {
 
-                $dbuser = phorum_api_hook('user_register', $dbuser);
+                $dbuser = phorum_hook('user_register', $dbuser);
             }
         }
     }
 
     // Add or update the user in the database.
     if ($existing) {
-        $PHORUM['DB']->user_save($dbuser);
+        phorum_db_user_save($dbuser);
     } else {
-        $dbuser['user_id'] = $PHORUM['DB']->user_add($dbuser);
-    }
-    // save his custom field data
-    if (is_array($user_customfield_data) && count($user_customfield_data) &&
-        !empty($dbuser['user_id'])) {
-        $PHORUM['DB']->save_custom_fields(
-            $dbuser['user_id'],
-            PHORUM_CUSTOM_FIELD_USER,
-            $user_customfield_data
-        );
+        $dbuser['user_id'] = phorum_db_user_add($dbuser);
     }
 
     // If the display name changed for the user, then we do need to run
     // updates throughout the Phorum database to make references to this
     // user to show up correctly.
     if ($existing && $existing['display_name'] != $dbuser['display_name']) {
-       $PHORUM['DB']->user_display_name_updates($dbuser);
+       phorum_db_user_display_name_updates($dbuser);
     }
 
     // If user caching is enabled, we invalidate the cache for this user.
     if (!empty($PHORUM['cache_users'])) {
-        phorum_api_cache_remove('user', $dbuser['user_id']);
+        phorum_cache_remove('user', $dbuser['user_id']);
     }
 
     // Are we handling the active Phorum user? Then refresh the user data.
-    if ($PHORUM['user']['user_id'] == $dbuser['user_id']) {
+    if (isset($PHORUM['user']) &&
+        $PHORUM['user']['user_id'] == $dbuser['user_id']) {
         $PHORUM['user'] = phorum_api_user_get($user['user_id'], TRUE, TRUE);
     }
 
@@ -780,8 +763,6 @@ function phorum_api_user_save($user, $flags = 0)
  */
 function phorum_api_user_save_raw($user)
 {
-    global $PHORUM;
-
     if (empty($user['user_id'])) {
         trigger_error(
             'phorum_api_user_save_raw(): the user_id field cannot be empty',
@@ -792,15 +773,15 @@ function phorum_api_user_save_raw($user)
 
     // This hook is documented in phorum_api_user_save().
     if (isset($PHORUM['hooks']['user_save'])) {
-        $user = phorum_api_hook('user_save', $user);
+        $user = phorum_hook('user_save', $user);
     }
 
     // Store the data in the database.
-    $PHORUM['DB']->user_save($user);
+    phorum_db_user_save($user);
 
     // Invalidate the cache for the user, unless we are only updating
     // user activity tracking fields.
-    if (!empty($PHORUM['cache_users']))
+    if (!empty($GLOBALS['PHORUM']['cache_users']))
     {
         // Count the number of activity tracking fields in the data.
         $count = 1; // count user_id as an activity tracking field
@@ -809,11 +790,9 @@ function phorum_api_user_save_raw($user)
 
         // Invalidate the cache, if there are non-activity tracking fields.
         if ($count != count($user)) {
-            phorum_api_cache_remove('user', $user['user_id']);
+            phorum_cache_remove('user', $user['user_id']);
         }
     }
-
-    return true;
 }
 // }}}
 
@@ -823,21 +802,20 @@ function phorum_api_user_save_raw($user)
  *
  * This function can be used to store arbitrairy settings for the active
  * Phorum user in the database. The main goal for this function is to store
- * user settings that are not available as a Phorum user table field in
- * the database. These are settings that do not really belong to the Phorum
+ * user settings which are not available as a Phorum user table field in
+ * the database. These are settings which do not really belong to the Phorum
  * core, but which are for example used for remembering some kind of state
  * in a user interface (templates). Since each user interface might require
  * different settings, a dynamic settings storage like this is required.
  *
  * If you are writing modules that need to store data for a user, then please
  * do not use this function. Instead, use custom profile fields. The data
- * that are stored using this function can be best looked at as if they were
+ * that is stored using this function can be best looked at as if it were
  * session data.
  *
  * @param array $settings
  *     An array of setting name => value pairs to store as user
- *     settings in the database. If the value is NULL, then the setting
- *     will be deleted.
+ *     settings in the database.
  */
 function phorum_api_user_save_settings($settings)
 {
@@ -864,58 +842,15 @@ function phorum_api_user_save_settings($settings)
     }
 
     // Save the settings in the database.
-    $PHORUM['DB']->user_save(array(
+    phorum_db_user_save(array(
         'user_id'       => $user_id,
         'settings_data' => $PHORUM['user']['settings_data']
     ));
 
     // If user caching is enabled, we remove the user from the cache.
-    if (!empty($PHORUM['cache_users'])) {
-        phorum_api_cache_remove('user', $user_id);
+    if (!empty($GLOBALS['PHORUM']['cache_users'])) {
+        phorum_cache_remove('user', $user_id);
     }
-}
-// }}}
-
-// {{{ Function: phorum_api_user_get_setting()
-/**
- * This function can be used to retrieve the value for a user setting
- * that was stored by the {@link phorum_api_user_save_settings()} function
- * for the active Phorum user.
- *
- * @param string $name
- *     The name of the setting for which to retrieve the setting value.
- *
- * @return mixed
- *     The value of the setting or NULL if it is not available.
- */
-function phorum_api_user_get_setting($name)
-{
-    global $PHORUM;
-
-    // No settings available at all?
-    if (empty($PHORUM['user']['settings_data'])) return NULL;
-
-    // The setting is available.
-    if (array_key_exists($name, $PHORUM['user']['settings_data'])) {
-        return $PHORUM['user']['settings_data'][$name];
-    } else {
-        return NULL;
-    }
-}
-// }}}
-
-// {{{ Function: phorum_api_user_delete_setting()
-/**
- * This function can be used to delete a user setting that was stored by
- * the {@link phorum_api_user_save_settings()} function for the active
- * Phorum user.
- *
- * @param string $name
- *     The name of the setting to delete.
- */
-function phorum_api_user_delete_setting($name)
-{
-    phorum_api_user_save_settings(array($name => NULL));
 }
 // }}}
 
@@ -938,12 +873,6 @@ function phorum_api_user_delete_setting($name)
  *     are using this API call in your own code, then you most probably do
  *     not need to use this parameter.
  *
- * @param boolean $raw_data
- *     This parameter is for internal use only.
- *     When this parameter is TRUE (default is FALSE), then custom fields
- *     that are configured with html_disabled will not be HTML encoded in
- *     the return data.
- *
  * @return mixed
  *     If the $user_id parameter is a single user_id, then either an array
  *     containing user data is returned or NULL if the user was not found.
@@ -952,8 +881,7 @@ function phorum_api_user_delete_setting($name)
  *     Users for user_ids that are not found are not included in the
  *     returned array.
  */
-function phorum_api_user_get(
-    $user_id, $detailed = FALSE, $use_write_server = FALSE, $raw_data = FALSE)
+function phorum_api_user_get($user_id, $detailed = FALSE, $use_write_server = FALSE, $raw_data = FALSE)
 {
     global $PHORUM;
 
@@ -965,7 +893,7 @@ function phorum_api_user_get(
 
     // Prepare the return data array. For each requested user_id,
     // a slot is prepared in this array. Also, turn the user id array
-    // into an array that has the user_id as both the key and value.
+    // into an array which has the user_id as both the key and value.
     $users = array();
     $new_user_ids = array();
     foreach ($user_ids as $id) {
@@ -976,27 +904,26 @@ function phorum_api_user_get(
 
     // First, try to retrieve user data from the user cache,
     // if user caching is enabled.
-    if (!empty($PHORUM['cache_users']))
+    if ($raw_data === FALSE && !empty($PHORUM['cache_users']))
     {
-        $cached_users = phorum_api_cache_get('user', $user_ids);
+        $cached_users = phorum_cache_get('user', $user_ids);
         if (is_array($cached_users))
         {
             foreach ($cached_users as $id => $user) {
-                $users[$user['user_id']] = $user;
+                $users[$id] = $user;
                 unset($user_ids[$id]);
             }
 
             // We need to retrieve the data for some dynamic fields
             // from the database.
-            $dynamic_data = $PHORUM['DB']->user_get_fields(
+            $dynamic_data = phorum_db_user_get_fields(
                 array_keys($cached_users),
                 array('date_last_active','last_active_forum','posts')
             );
 
             // Store the results in the users array.
-            foreach ($dynamic_data as $d_user_id => $data) {
-                $users[$d_user_id] =
-                  array_merge($users[$d_user_id],$data);
+            foreach ($dynamic_data as $id => $data) {
+                $users[$id] = array_merge($users[$id],$data);
             }
         }
     }
@@ -1005,14 +932,7 @@ function phorum_api_user_get(
     // retrieved from the cache.
     if (count($user_ids))
     {
-        $db_users = $PHORUM['DB']->user_get($user_ids, $detailed, $use_write_server);
-
-        // Retrieve and apply the custom fields for users.
-        if (!empty($PHORUM['CUSTOM_FIELDS'][PHORUM_CUSTOM_FIELD_USER])) {
-            $db_users = phorum_api_custom_field_apply(
-                PHORUM_CUSTOM_FIELD_USER, $db_users, $raw_data
-            );
-        }
+        $db_users = phorum_db_user_get($user_ids, $detailed, $use_write_server, $raw_data);
 
         foreach ($db_users as $id => $user)
         {
@@ -1040,8 +960,8 @@ function phorum_api_user_get(
             // If detailed information was requested, we store the data in
             // the cache. For non-detailed information, we do not cache the
             // data, because there is not much to gain there by caching.
-            if ($detailed && !empty($PHORUM['cache_users'])) {
-                phorum_api_cache_put('user', $id, $user);
+            if ($detailed && !empty($PHORUM['cache_users']) && $raw_data === FALSE) {
+                phorum_cache_put('user', $id, $user);
             }
 
             // Store the results in the users array.
@@ -1115,13 +1035,7 @@ function phorum_api_user_get(
      *     </hookcode>
      */
     if (isset($PHORUM['hooks']['user_get'])) {
-        $users = phorum_api_hook('user_get', $users, $detailed);
-    }
-
-    // A backward compatibility hook. The advised hook for modifying
-    // loaded user data is "user_get" from above.
-    if (isset($PHORUM["hooks"]["read_user_info"])) {
-        $users = phorum_api_hook("read_user_info", $users);
+        $users = phorum_hook('user_get', $users, $detailed);
     }
 
     // Return the results.
@@ -1129,6 +1043,34 @@ function phorum_api_user_get(
         return $users;
     } else {
         return isset($users[$user_id]) ? $users[$user_id] : NULL;
+    }
+}
+// }}}
+
+// {{{ Function: phorum_api_user_get_setting()
+/**
+ * This function can be used to retrieve the value for a user setting
+ * that was stored by the {@link phorum_api_user_save_settings()} function
+ * for the active Phorum user.
+ *
+ * @param string $name
+ *     The name of the setting for which to retrieve the setting value.
+ *
+ * @return mixed
+ *     The value of the setting or NULL if it is not available.
+ */
+function phorum_api_user_get_setting($name)
+{
+    global $PHORUM;
+
+    // No settings available at all?
+    if (empty($PHORUM['user']['settings_data'])) return NULL;
+
+    // The setting is available.
+    if (array_key_exists($name, $PHORUM['user']['settings_data'])) {
+        return $PHORUM['user']['settings_data'][$name];
+    } else {
+        return NULL;
     }
 }
 // }}}
@@ -1198,7 +1140,7 @@ function phorum_api_user_get_display_name($user_id = NULL, $fallback = NULL, $fl
             // Other names do have to be escaped.
             if (empty($users[$id]) || empty($PHORUM['custom_display_name']))
             {
-                $display_name = phorum_api_format_htmlspecialchars($display_name);
+                $display_name = htmlspecialchars($display_name, ENT_QUOTES, $PHORUM['DATA']['HCHARSET']);
             }
         }
         // Generate a plain text version of the display name. This is the
@@ -1260,12 +1202,8 @@ function phorum_api_user_get_display_name($user_id = NULL, $fallback = NULL, $fl
  *
  * @param mixed $operator
  *     The operator (string) or operators (array) to use. Valid operators are
- *     "=", "!=", "<>", "<", ">", ">=" and "<=", "*", "?*", "*?", "()". The
- *     "*" operator is for executing a "LIKE '%value%'" matching query. The
- *     "?*" and "*?" operators are for executing a "LIKE 'value%'" or a
- *     "LIKE '%value' matching query. The "()" operator is for executing a
- *     "IN ('value[0]',value[1]')" matching query.  The "()" operator requires
- *     its $value to be an array.
+ *     "=", "!=", "<>", "<", ">", ">=" and "<=", "*". The
+ *     "*" operator is for executing a "LIKE '%value%'" matching query.
  *
  * @param boolean $return_array
  *     If this parameter has a true value, then an array of all matching
@@ -1295,13 +1233,12 @@ function phorum_api_user_get_display_name($user_id = NULL, $fallback = NULL, $fl
  *
  * @return mixed
  *     An array of matching user_ids or a single user_id (based on the
- *     $return_array parameter). If no user_ids can be found at all,
- *     then 0 (zero) will be returned.
+ *     $return_array parameter) or a count of results (based on $count_only).
+ *     If no user_ids can be found at all, then 0 (zero) will be returned.
  */
-function phorum_api_user_search($field, $value, $operator = '=', $return_array = FALSE, $type = 'AND', $sort = NULL, $offset = 0, $length = 0,$count_only = false)
+function phorum_api_user_search($field, $value, $operator = '=', $return_array = FALSE, $type = 'AND', $sort = NULL, $offset = 0, $length = 0,$count_only=false)
 {
-    global $PHORUM;
-    return $PHORUM['DB']->user_search($field, $value, $operator, $return_array, $type, $sort, $offset, $length,$count_only);
+    return phorum_db_user_search($field, $value, $operator, $return_array, $type, $sort, $offset, $length,$count_only);
 }
 // }}}
 
@@ -1349,8 +1286,7 @@ function phorum_api_user_search($field, $value, $operator = '=', $return_array =
  */
 function phorum_api_user_search_custom_profile_field($field_id, $value, $operator = '=', $return_array = FALSE, $type = 'AND', $offset = 0, $length = 0)
 {
-    global $PHORUM;
-    return $PHORUM['DB']->search_custom_profile_field(PHORUM_CUSTOM_FIELD_USER,$field_id, $value, $operator, $return_array, $type, $offset, $length);
+    return phorum_db_user_search_custom_profile_field($field_id, $value, $operator, $return_array, $type, $offset, $length);
 }
 // }}}
 
@@ -1358,7 +1294,7 @@ function phorum_api_user_search_custom_profile_field($field_id, $value, $operato
 /**
  * Retrieve a list of Phorum users.
  *
- * @param int $flags
+ * @param int $type
  *     One of:
  *     - {@link PHORUM_GET_ALL}: retrieve a list of all users (the default)
  *     - {@link PHORUM_GET_ACTIVE}: retrieve a list of all active users
@@ -1375,10 +1311,8 @@ function phorum_api_user_search_custom_profile_field($field_id, $value, $operato
  */
 function phorum_api_user_list($type = PHORUM_GET_ALL)
 {
-    global $PHORUM;
-
     // Retrieve a list of users from the database.
-    $list = $PHORUM['DB']->user_get_list($type);
+    $list = phorum_db_user_get_list($type);
 
     /**
      * [hook]
@@ -1414,18 +1348,16 @@ function phorum_api_user_list($type = PHORUM_GET_ALL)
      *     <hookcode>
      *     function phorum_mod_foo_user_list($users)
      *     {
-     *         global $PHORUM;
-     *
      *         // Only run this hook code for authenticated users.
      *         if (empty($PHORUM["user"]["user_id"])) return $users;
      *
      *         // Retrieve a list of buddies for the active user.
      *         // If there are no buddies, then no work is needed.
-     *         $buddies = $PHORUM['DB']->pm_buddy_list();
+     *         $buddies = phorum_db_pm_buddy_list();
      *         if (empty($buddies)) return $users;
      *
      *         // Flag buddies in the user list.
-     *         $langstr = $PHORUM["DATA"]["LANG"]["Buddy"];
+     *         $langstr = $GLOBALS["PHORUM"]["DATA"]["LANG"]["Buddy"];
      *         foreach ($buddies as $user_id => $info) {
      *             $users[$user_id]["display_name"] .= " ($langstr)";
      *         }
@@ -1434,8 +1366,8 @@ function phorum_api_user_list($type = PHORUM_GET_ALL)
      *     }
      *     </hookcode>
      */
-    if (isset($PHORUM['hooks']['user_list'])) {
-        $list = phorum_api_hook('user_list', $list);
+    if (isset($GLOBALS['PHORUM']['hooks']['user_list'])) {
+        $list = phorum_hook('user_list', $list);
     }
 
     return $list;
@@ -1453,14 +1385,12 @@ function phorum_api_user_list($type = PHORUM_GET_ALL)
  */
 function phorum_api_user_increment_posts($user_id = NULL)
 {
-    global $PHORUM;
-
     if (empty($user_id)) {
-        $user_id = $PHORUM["user"]["user_id"];
+        $user_id = $GLOBALS["PHORUM"]["user"]["user_id"];
     }
     settype($user_id, "int");
 
-    $PHORUM['DB']->user_increment_posts($user_id);
+    phorum_db_user_increment_posts($user_id);
 }
 // }}}
 
@@ -1473,8 +1403,6 @@ function phorum_api_user_increment_posts($user_id = NULL)
  */
 function phorum_api_user_delete($user_id)
 {
-    global $PHORUM;
-
     settype($user_id, "int");
 
     /**
@@ -1501,36 +1429,86 @@ function phorum_api_user_delete($user_id)
      *
      * [example]
      *     <hookcode>
-     *     function phorum_mod_foo_user_delete($user)
+     *     function phorum_mod_foo_user_delete($user_id)
      *     {
+     *         // Get user info
+     *         $user = phorum_api_user_get($user_id);
+     *
      *         // Log user delete through syslog.
      *         openlog("Phorum", LOG_PID | LOG_PERROR, LOG_LOCAL0);
      *         syslog(LOG_NOTICE, "Delete user registration: $user[username]");
      *
-     *         return $user;
+     *         return $user_id;
      *     }
      *     </hookcode>
      */
-    if (isset($PHORUM['hooks']['user_delete'])) {
-        phorum_api_hook('user_delete', $user_id);
+    if (isset($GLOBALS['PHORUM']['hooks']['user_delete'])) {
+        phorum_hook('user_delete', $user_id);
     }
 
     // If user caching is enabled, we remove the user from the cache.
-    if (!empty($PHORUM['cache_users'])) {
-        phorum_api_cache_remove('user', $user_id);
+    if (!empty($GLOBALS['PHORUM']['cache_users'])) {
+        phorum_cache_remove('user', $user_id);
     }
 
     // Remove the user and user related data from the database.
-    $PHORUM['DB']->user_delete($user_id);
+    phorum_db_user_delete($user_id);
 
     // Delete the personal user files for this user.
-    require_once PHORUM_PATH.'/include/api/file.php';
+    require_once(dirname(__FILE__).'/file_storage.php');
     $files = phorum_api_file_list(PHORUM_LINK_USER, $user_id, 0);
     foreach ($files as $file_id => $file) {
         phorum_api_file_delete($file_id);
     }
 }
 // }}}
+
+// {{{ Function: phorum_api_user_force_password_change()
+/**
+ * Set the "force password change" marker for all users except executing admin.
+ *
+ * @param integer $user_id
+ *     The administrators user_id.
+ */
+function phorum_api_user_force_password_change($user_id)
+{
+    settype($user_id, "int");
+    phorum_db_user_force_password_change($user_id);
+}
+// }}}
+
+// {{{ Function: phorum_api_user_format()
+/*
+ * This function handles preparing user data * for use in the templates.
+ *
+ * @param mixed $users
+ *     An array of user data records to format.
+ *
+ * @return array
+ *     The same as the $users argument array, with formatting applied.
+ */
+function phorum_api_user_format($users)
+{
+    global $PHORUM;
+
+    foreach ($users as $id => $user)
+    {
+        foreach (array(
+            'username', 'real_name', 'display_name',
+            'email', 'signature'
+        ) as $field) {
+            if (isset($user[$field])) {
+                $users[$id][$field] = htmlspecialchars(
+                    $user[$field], ENT_QUOTES, $PHORUM["DATA"]["HCHARSET"]
+                );
+            }
+        }
+    }
+
+    return $users;
+}
+// }}}
+
 
 // ----------------------------------------------------------------------
 // Authentication and session management.
@@ -1647,7 +1625,7 @@ function phorum_api_user_authenticate($type, $username, $password)
     if (isset($PHORUM['hooks']['user_authenticate']))
     {
         // Run the hook.
-        $authinfo = phorum_api_hook('user_authenticate', array(
+        $authinfo = phorum_hook('user_authenticate', array(
             'type'     => $type,
             'username' => $username,
             'password' => $password,
@@ -1664,7 +1642,7 @@ function phorum_api_user_authenticate($type, $username, $password)
         if ($authinfo['user_id']!==NULL && !is_numeric($authinfo['user_id'])) {
             trigger_error(
                 'Hook user_check_login returned a non-numerical user_id "' .
-                phorum_api_format_htmlspecialchars($authinfo['user_id']) .
+                htmlspecialchars($authinfo['user_id']) .
                 '" for the authenticated user. Phorum only supports numerical ' .
                 'user_id values.',
                 E_USER_ERROR
@@ -1680,14 +1658,13 @@ function phorum_api_user_authenticate($type, $username, $password)
     if ($user_id === NULL)
     {
         // Check the password.
-        $user_id = $PHORUM['DB']->user_check_login($username, md5($password));
+        $user_id = phorum_db_user_check_login($username, md5($password));
 
         // Password check failed? Then try the temporary password (used for
         // the password reminder feature).
         $temporary_matched = FALSE;
         if ($user_id == 0) {
-            $user_id = $PHORUM['DB']->user_check_login(
-                $username, md5($password), TRUE);
+            $user_id = phorum_db_user_check_login($username, md5($password), TRUE);
             if ($user_id != 0) {
                 $temporary_matched = TRUE;
             }
@@ -1763,16 +1740,16 @@ function phorum_api_user_authenticate($type, $username, $password)
  *     or FALSE if the anonymous user was set (either because that was
  *     requested or because setting the real user failed). If setting a
  *     real user as the active user failed, the functions
- *     {@link phorum_api_error_message()} and {@link phorum_api_error_code()}
- *     can be used to retrieve information about the error which occurred.
+ *     {@link phorum_api_strerror()} and {@link phorum_api_errno()} can be
+ *     used to retrieve information about the error which occurred.
  */
 function phorum_api_user_set_active_user($type, $user = NULL, $flags = 0)
 {
     global $PHORUM;
 
     // Reset error storage.
-    $PHORUM['API']['errno'] = NULL;
-    $PHORUM['API']['error'] = NULL;
+    $GLOBALS['PHORUM']['API']['errno'] = NULL;
+    $GLOBALS['PHORUM']['API']['error'] = NULL;
 
     // Determine what user to use.
     if ($user !== NULL)
@@ -1783,7 +1760,7 @@ function phorum_api_user_set_active_user($type, $user = NULL, $flags = 0)
             // missing, then we fall back to the anonymous user.
             if (!isset($user['user_id']) ||
                 !isset($user['active'])) {
-                phorum_api_error(
+                phorum_api_error_set(
                     PHORUM_ERRNO_ERROR,
                     'phorum_api_user_set_active_user(): ' .
                     'user record seems incomplete'
@@ -1807,7 +1784,7 @@ function phorum_api_user_set_active_user($type, $user = NULL, $flags = 0)
 
         // Fall back to the anonymous user if the user is not activated.
         if ($user && $user['active'] != PHORUM_USER_ACTIVE) {
-            phorum_api_error(
+            phorum_api_error_set(
                 PHORUM_ERRNO_ERROR,
                 'phorum_api_user_set_active_user(): ' .
                 'the user is not active'
@@ -1818,7 +1795,7 @@ function phorum_api_user_set_active_user($type, $user = NULL, $flags = 0)
         // Fall back to the anonymous user if the user does not have
         // admin rights, while an admin setup was requested.
         if ($type == PHORUM_ADMIN_SESSION && $user && empty($user['admin'])) {
-            phorum_api_error(
+            phorum_api_error_set(
                 PHORUM_ERRNO_ERROR,
                 'phorum_api_user_set_active_user(): ' .
                 'the user is not an administrator'
@@ -1993,8 +1970,8 @@ function phorum_api_user_get_active_user()
  * @return boolean
  *     TRUE in case the session was initialized successfully.
  *     Otherwise, FALSE will be returned. The functions
- *     {@link phorum_api_error_message()} and {@link phorum_api_error_code()}
- *     can be used to retrieve information about the error which occurred.
+ *     {@link phorum_api_strerror()} and {@link phorum_api_errno()} can be
+ *     used to retrieve information about the error which occurred.
  */
 function phorum_api_user_session_create($type, $reset = 0)
 {
@@ -2031,8 +2008,6 @@ function phorum_api_user_session_create($type, $reset = 0)
      *     <hookcode>
      *     function phorum_mod_foo_user_session_create($type)
      *     {
-     *         global $PHORUM;
-     *
      *         // Let Phorum handle admin sessions on its own.
      *         if ($type == PHORUM_ADMIN_SESSION) return $type;
      *
@@ -2046,7 +2021,7 @@ function phorum_api_user_session_create($type, $reset = 0)
      *         // PHP session data. The user_id is really the only thing
      *         // that needs to be remembered for a Phorum session, because
      *         // all other data for the user is stored in the database.
-     *         $phorum_user_id = $PHORUM["user"]["user_id"];
+     *         $phorum_user_id = $GLOBALS["PHORUM"]["user"]["user_id"];
      *         $_SESSION['phorum_user_id'] = $phorum_user_id;
      *
      *         // Tell Phorum not to run its own session initialization code.
@@ -2058,7 +2033,7 @@ function phorum_api_user_session_create($type, $reset = 0)
      *     of how to let Phorum pick up this PHP based session.
      */
     if (isset($PHORUM['hooks']['user_session_create'])) {
-        if (phorum_api_hook('user_session_create', $type) === NULL) {
+        if (phorum_hook('user_session_create', $type) === NULL) {
             return TRUE;
         }
     }
@@ -2072,7 +2047,7 @@ function phorum_api_user_session_create($type, $reset = 0)
         $type != PHORUM_ADMIN_SESSION) {
         trigger_error(
             'phorum_api_user_session_create(): Illegal session type: ' .
-            phorum_api_format_htmlspecialchars($type),
+            htmlspecialchars($type),
             E_USER_ERROR
         );
         return NULL;
@@ -2090,7 +2065,7 @@ function phorum_api_user_session_create($type, $reset = 0)
 
     // Check if the user is activated.
     if ($PHORUM['user']['active'] != PHORUM_USER_ACTIVE) {
-        return phorum_api_error(
+        return phorum_api_error_set(
             PHORUM_ERRNO_NOACCESS,
             'The user is not (yet) activated (user id '.$PHORUM['user']['user_id'].')'
         );
@@ -2101,7 +2076,7 @@ function phorum_api_user_session_create($type, $reset = 0)
     // one can never be too sure about this.
     if ($type == PHORUM_ADMIN_SESSION &&
         empty($PHORUM['user']['admin'])) {
-        return phorum_api_error(
+        return phorum_api_error_set(
             PHORUM_ERRNO_NOACCESS,
             'The user is not an administrator (user id '.$PHORUM['user']['user_id'].')'
         );
@@ -2319,7 +2294,7 @@ function phorum_api_user_session_restore($type)
     else {
         trigger_error(
             'phorum_api_user_session_restore(): Illegal session type: ' .
-            phorum_api_format_htmlspecialchars($type),
+            htmlspecialchars($type),
             E_USER_ERROR
         );
         return NULL;
@@ -2350,7 +2325,6 @@ function phorum_api_user_session_restore($type)
      *       <li>PHORUM_SESSION_SHORT_TERM</li>
      *       <li>PHORUM_SESSION_ADMIN</li>
      *     </ul>
-     *     <sbr/>
      *     What the module has to do, is fill the values for each of these
      *     keys with the user_id of the Phorum user for which the session that
      *     the key represents should be considered active. Other options
@@ -2433,7 +2407,7 @@ function phorum_api_user_session_restore($type)
         PHORUM_SESSION_ADMIN      => NULL
     );
     if (isset($PHORUM['hooks']['user_session_restore'])) {
-        $hook_sessions = phorum_api_hook('user_session_restore', $hook_sessions);
+        $hook_sessions = phorum_hook('user_session_restore', $hook_sessions);
     }
 
     $real_cookie = FALSE;
@@ -2553,7 +2527,7 @@ function phorum_api_user_session_restore($type)
     // authentication) and update the "use_cookies" setting accordingly.
     if ($check_session[PHORUM_SESSION_LONG_TERM] == 2 && ! $real_cookie) {
         $check_session[PHORUM_SESSION_SHORT_TERM] = 0;
-        $PHORUM['use_cookies'] = PHORUM_NO_COOKIES;
+        $GLOBALS['PHORUM']['use_cookies'] = PHORUM_NO_COOKIES;
     }
 
     // ----------------------------------------------------------------------
@@ -2692,7 +2666,7 @@ function phorum_api_user_session_destroy($type)
      */
     $do_phorum_destroy_session = TRUE;
     if (isset($PHORUM['hooks']['user_session_destroy'])) {
-        if (phorum_api_hook('user_session_destroy', $type) === NULL) {
+        if (phorum_hook('user_session_destroy', $type) === NULL) {
             $do_phorum_destroy_session = FALSE;
         }
     }
@@ -2718,7 +2692,7 @@ function phorum_api_user_session_destroy($type)
         } else {
             trigger_error(
                 'phorum_api_user_session_destroy(): Illegal session type: ' .
-                phorum_api_format_htmlspecialchars($type),
+                htmlspecialchars($type),
                 E_USER_ERROR
             );
             return NULL;
@@ -2744,8 +2718,6 @@ function phorum_api_user_session_destroy($type)
 
     // Force Phorum to see the anonymous user from here on.
     phorum_api_user_set_active_user(PHORUM_FORUM_SESSION, NULL);
-
-    return true;
 }
 // }}}
 
@@ -2793,10 +2765,8 @@ function phorum_api_user_get_groups($user_id)
  */
 function phorum_api_user_save_groups($user_id, $groups)
 {
-    global $PHORUM;
-
-    if (!empty($PHORUM['cache_users'])) {
-        phorum_api_cache_remove('user', $user_id);
+    if (!empty($GLOBALS["PHORUM"]['cache_users'])) {
+        phorum_cache_remove('user', $user_id);
     }
 
     $dbgroups = array();
@@ -2812,7 +2782,7 @@ function phorum_api_user_save_groups($user_id, $groups)
             $perm != PHORUM_USER_GROUP_MODERATOR) {
             trigger_error(
                 'phorum_api_user_save_groups(): Illegal group permission for ' .
-                'group id '.phorum_api_format_htmlspecialchars($id).': '.phorum_api_format_htmlspecialchars($perm),
+                'group id '.htmlspecialchars($id).': '.htmlspecialchars($perm),
                 E_USER_ERROR
             );
             return NULL;
@@ -2858,9 +2828,11 @@ function phorum_api_user_save_groups($user_id, $groups)
      *     </hookcode>
      */
     if (isset($GLOBALS['PHORUM']['hooks']['user_save_groups'])) {
-        list($user_id,$dbgroups) = phorum_api_hook('user_save_groups', array($user_id,$dbgroups));
+        list($user_id,$dbgroups) = phorum_hook('user_save_groups', array($user_id,$dbgroups));
     }
-    return $PHORUM['DB']->user_save_groups($user_id, $dbgroups);
+
+
+    return phorum_db_user_save_groups($user_id, $dbgroups);
 }
 // }}}
 
@@ -2898,7 +2870,7 @@ function phorum_api_user_save_groups($user_id, $groups)
  * @return mixed
  *     The return value depends on the $forum_id argument that was used:
  *
- *     - Single forum_id, forum_id 0 (zero) or {@link PHORUM_ACCESS_ANY}:
+ *     - Single forum_id , 0 (zero) or {@link PHORUM_ACCESS_ANY}:
  *       return either TRUE (access granted) or FALSE (access denied).
  *
  *     - An array of forum_ids or {@link PHORUM_ACCESS_LIST}:
@@ -2930,7 +2902,7 @@ function phorum_api_user_check_access($permission, $forum_id = 0, $user = 0)
     // Retrieve a forum access list or access-rights-in-any-forum.
     } elseif ($forum_id == PHORUM_ACCESS_LIST ||
               $forum_id == PHORUM_ACCESS_ANY) {
-        $forums = $PHORUM['DB']->get_forums(0, NULL, $PHORUM['vroot']);
+        $forums = phorum_db_get_forums(0, NULL, $PHORUM['vroot']);
         foreach ($forums as $id => $data) $forum_access[$id] = FALSE;
     // A single forum id.
     } else {
@@ -2942,7 +2914,7 @@ function phorum_api_user_check_access($permission, $forum_id = 0, $user = 0)
     if (empty($user)) {
         $user = $PHORUM['user'];
     } elseif (!is_array($user)) {
-        $user = phorum_api_user_get($user);
+        $user = phorum_api_user_get($user, true);
     }
 
     // Inactive users have no permissions at all.
@@ -2968,7 +2940,7 @@ function phorum_api_user_check_access($permission, $forum_id = 0, $user = 0)
         // Fetch data for the forums, unless we already have that
         // data available.
         if ($forums === NULL) {
-            $forums = $PHORUM['DB']->get_forums(array_keys($forum_access));
+            $forums = phorum_db_get_forums(array_keys($forum_access));
         }
 
         // Check the access rights for each forum.
@@ -3080,12 +3052,12 @@ function phorum_api_user_check_group_access($permission, $group_id, $user = 0)
 
     // Retrieve all the groups for the current user. Admins get all groups.
     if (!empty($user['user_id']) && !empty($user['admin'])) {
-        $groups = $PHORUM['DB']->get_groups(0, TRUE);
+        $groups = phorum_db_get_groups(0, TRUE);
     } else {
-        $usergroups = $PHORUM['DB']->user_get_groups($user['user_id']);
+        $usergroups = phorum_db_user_get_groups($user['user_id']);
         $groups = empty($usergroups)
                 ? array()
-                : $PHORUM['DB']->get_groups(array_keys($usergroups), TRUE);
+                : phorum_db_get_groups(array_keys($usergroups), TRUE);
     }
 
     // Prepare the array of group_ids to check.
@@ -3190,7 +3162,7 @@ function phorum_api_user_list_moderators($forum_id = 0, $exclude_admin = FALSE, 
 
     if (empty($forum_id)) $forum_id = $PHORUM['forum_id'];
 
-    return $PHORUM['DB']->user_get_moderators($forum_id, $exclude_admin, $for_mail);
+    return phorum_db_user_get_moderators($forum_id, $exclude_admin, $for_mail);
 }
 // }}}
 
@@ -3223,15 +3195,13 @@ function phorum_api_user_list_moderators($forum_id = 0, $exclude_admin = FALSE, 
  */
 function phorum_api_user_subscribe($user_id, $thread, $forum_id, $type)
 {
-    global $PHORUM;
-
     // Check if the user is allowed to read the forum.
     if (! phorum_api_user_check_access(PHORUM_USER_ALLOW_READ, $forum_id)) {
         return;
     }
 
     // Setup the subscription.
-    $PHORUM['DB']->user_subscribe($user_id, $thread, $forum_id, $type);
+    phorum_db_user_subscribe($user_id, $thread, $forum_id, $type);
 }
 // }}}
 
@@ -3251,10 +3221,8 @@ function phorum_api_user_subscribe($user_id, $thread, $forum_id, $type)
  */
 function phorum_api_user_unsubscribe($user_id, $thread, $forum_id = 0)
 {
-    global $PHORUM;
-
     // Remove the subscription.
-    $PHORUM['DB']->user_unsubscribe($user_id, $thread, $forum_id);
+    phorum_db_user_unsubscribe($user_id, $thread, $forum_id);
 }
 // }}}
 
@@ -3281,9 +3249,7 @@ function phorum_api_user_unsubscribe($user_id, $thread, $forum_id = 0)
  */
 function phorum_api_user_get_subscription($user_id, $forum_id, $thread)
 {
-    global $PHORUM;
-
-    return $PHORUM['DB']->user_get_subscription($user_id, $forum_id, $thread);
+    return phorum_db_user_get_subscription($user_id, $forum_id, $thread);
 }
 // }}}
 
@@ -3312,8 +3278,7 @@ function phorum_api_user_get_subscription($user_id, $forum_id, $thread)
  */
 function phorum_api_user_list_subscriptions($user_id, $days=0, $forum_ids=NULL)
 {
-    global $PHORUM;
-    return $PHORUM['DB']->user_list_subscriptions($user_id, $days, $forum_ids);
+    return phorum_db_user_list_subscriptions($user_id, $days, $forum_ids);
 }
 // }}}
 
@@ -3347,9 +3312,7 @@ function phorum_api_user_list_subscriptions($user_id, $days=0, $forum_ids=NULL)
 
 function phorum_api_user_list_subscribers($forum_id, $thread, $type, $ignore_active_user = TRUE)
 {
-    global $PHORUM;
-    return $PHORUM['DB']->user_list_subscribers(
-        $forum_id, $thread, $type, $ignore_active_user);
+    return phorum_db_user_list_subscribers($forum_id, $thread, $type, $ignore_active_user);
 }
 // }}}
 

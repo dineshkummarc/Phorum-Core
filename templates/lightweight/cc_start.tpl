@@ -2,11 +2,11 @@
     <dl>
         <dt>{LANG->Username}:</dt>
         <dd>{PROFILE->username}</dd>
+        <dt>{LANG->RealName}:</dt>
         {IF PROFILE->real_name}
-            <dt>{LANG->RealName}:</dt>
             <dd>{PROFILE->real_name}</dd>
+            <dt>{LANG->Email}:</dt>
         {/IF}
-        <dt>{LANG->Email}:</dt>
         <dd>{PROFILE->email}</dd>
         <dt>{LANG->DateReg}:</dt>
         <dd>{PROFILE->date_added}</dd>

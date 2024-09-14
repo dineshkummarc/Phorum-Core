@@ -1,5 +1,6 @@
 #!/usr/bin/php
 <?php
+
 // Rebuild all real name information in the database from scratch.
 // This can take a while, so only run this script if needed.
 
@@ -10,26 +11,27 @@ if ('cli' != php_sapi_name()) {
 }
 
 define("PHORUM_ADMIN", 1);
-define('phorum_page', 'rebuild_display_names');
+define('phorum_page', 'rebuild_real_names');
 
-require_once(dirname(__FILE__).'/../include/api.php');
+chdir(dirname(__FILE__) . "/..");
+require_once './common.php';
 
 // Make sure that the output is not buffered.
-phorum_api_buffer_clear();
+phorum_ob_clean();
 
 if (! ini_get('safe_mode')) {
     set_time_limit(0);
     ini_set("memory_limit","64M");
 }
 
-$count_total = $PHORUM['DB']->user_count();
-$res = $PHORUM['DB']->user_get_all();
+$count_total = phorum_db_user_count();
+$res = phorum_db_user_get_all();
 
 print "\nRebuilding display name information ...\n";
 
 $size = strlen($count_total);
 $count = 0;
-while ($user = $PHORUM['DB']->fetch_row($res, DB_RETURN_ASSOC))
+while ($user = phorum_db_fetch_row($res, DB_RETURN_ASSOC))
 {
     // We save an empty user, to make sure that the display name in the
     // database is up-to-date. This will already run needed updates in
@@ -39,7 +41,7 @@ while ($user = $PHORUM['DB']->fetch_row($res, DB_RETURN_ASSOC))
     // ... but still we run the name updates here, so inconsistencies
     // are flattened out.
     $user = phorum_api_user_get($user["user_id"]);
-    $PHORUM['DB']->user_display_name_updates(array(
+    phorum_db_user_display_name_updates(array(
         "user_id"      => $user["user_id"],
         "display_name" => $user["display_name"]
     ));

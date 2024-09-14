@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,63 +15,58 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Check the database connection and setup. We may want to have finer
-// granulated checks here to give users with problem real good
-// information about what should be fixed, but for that the
-// database layer must be extended. For now it's just a simple
-// connect check that will mostly just sit there and be pretty ;-)
-//
-// Extra checks to think about:
-// - test if all needed permissions are set;
-// - catch the error from the database on connection failure and
-//   try to give the user specific data for fixing the problem.
+    // Check the database connection and setup. We may want to have finer
+    // granulated checks here to give users with problem real good
+    // information about what should be fixed, but for that the
+    // database layer must be extended. For now it's just a simple
+    // connect check that will mostly just sit there and be pretty ;-)
+    //
+    // Extra checks to think about:
+    // - test if all needed permissions are set;
+    // - catch the error from the database on connection failure and
+    //   try to give the user specific data for fixing the problem.
 
-$phorum_check = "Database connection";
+    $phorum_check = "Database connection";
 
-function phorum_check_database($is_install = false)
-{
-    global $PHORUM;
+    function phorum_check_database($is_install = false) {
+        global $PHORUM;
 
-    // Check if we have a database configuration available.
-    if (! isset($PHORUM["DBCONFIG"])) return array(
-        PHORUM_SANITY_CRIT,
-        "No database configuration was found in your environment.",
-        "You probably have not copied include/config/database.php.sample
-         to include/config/database.php. Read Phorum's install.txt for
-         installation instructions."
-    );
+        // Check if we have a database configuration available.
+        if (! isset($PHORUM["DBCONFIG"])) return array(
+            PHORUM_SANITY_CRIT,
+            "No database configuration was found in your environment.",
+            "You probably have not copied include/db/config.php.sample
+             to include/db/config.php. Read Phorum's install.txt for
+             installation instructions."
+        );
 
-    // For installation on 5.2+, we need the "charset" option to
-    // be set in the include/config/database.php.
-    if ($is_install && ! isset($PHORUM['DBCONFIG']['charset'])) return array(
-        PHORUM_SANITY_CRIT,
-        "Database configuration parameter \"charset\" missing.",
-        "The option \"charset\" is missing in your database configuration.
-         This might indicate that you are using an include/config/database.php
-         from an older Phorum version, which does not yet contain this option.
-         Please, copy include/config/database.php.sample to
-         include/config/database.php and edit this new database.php. Read
-         Phorum's install.txt for installation instructions."
-    );
+        // Check if a connection can be made.
+        $connected = @phorum_db_check_connection();
+        if (! $connected) return array(
+            PHORUM_SANITY_CRIT,
+            "Connecting to the database failed.",
+            "Check your database settings in the file include/db/conf.php"
+        );
 
-    // Check if a connection can be made.
-    $connected = @$PHORUM['DB']->check_connection();
-    if (! $connected) return array(
-        PHORUM_SANITY_CRIT,
-        "Connecting to the database failed.",
-        "Check your database settings in the file include/db/conf.php"
-    );
+        // Do a database layer specific check, if available.
+        if (function_exists("phorum_db_sanitychecks")) {
+            $res = phorum_db_sanitychecks();
+            if ($res[0] != PHORUM_SANITY_OK) return $res;
+        }
 
-    // Do a database layer specific check, if available.
-    if (method_exists($PHORUM['DB'], "sanitychecks")) {
-        $res = $PHORUM['DB']->sanitychecks();
-        if ($res[0] != PHORUM_SANITY_OK) return $res;
+        if ($is_install && empty($PHORUM['DBCONFIG']['charset'])) return array(
+            PHORUM_SANITY_WARN,
+            "Database configuration parameter \"charset\" empty.",
+            "The option \"charset\" is empty in your database configuration.
+             Although you can install Phorum without setting an explicit
+             charset here, we strongly advice against this. Without a
+             specific charset here, you might run into problems with
+             special characters later on."
+        );
+
+        // All checks are OK.
+        return array(PHORUM_SANITY_OK, NULL, NULL);
     }
-
-    // All checks are OK.
-    return array(PHORUM_SANITY_OK, NULL, NULL);
-}
 ?>

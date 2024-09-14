@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,12 +15,12 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM")) return;
+if(!defined("PHORUM")) return;
 
-require_once PHORUM_PATH.'/include/api/ban.php';
+// For phorum_check_ban_lists().
+include_once("./include/profile_functions.php");
 
 // Create a list of the bans that we want to check.
 $bans = array();
@@ -27,7 +28,6 @@ $bans = array();
 // Add checks for registered users.
 if ($PHORUM["DATA"]["LOGGEDIN"]) {
     $bans[] = array($PHORUM["user"]["username"], PHORUM_BAD_NAMES);
-    $bans[] = array($message["author"], PHORUM_BAD_NAMES);
     $bans[] = array($PHORUM["user"]["email"], PHORUM_BAD_EMAILS);
     $bans[] = array($PHORUM["user"]["user_id"], PHORUM_BAD_USERID);
 }
@@ -46,7 +46,7 @@ $bans[] = array($message["body"], PHORUM_BAD_SPAM_WORDS);
 
 
 // Run the checks.
-$msg = phorum_api_ban_check_multi($bans);
+$msg = phorum_check_bans($bans);
 if (!is_null($msg)) {
     $PHORUM["DATA"]["ERROR"] = $msg;
 }

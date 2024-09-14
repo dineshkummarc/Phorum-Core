@@ -1,22 +1,22 @@
 #!/usr/bin/php
 <?php
-////////////////////////////////////////////////////////////////////////////////
-//                                                                            //
-//   Copyright (C) 2016  Phorum Development Team                              //
-//   http://www.phorum.org                                                    //
-//                                                                            //
-//   This program is free software. You can redistribute it and/or modify     //
-//   it under the terms of either the current Phorum License (viewable at     //
-//   phorum.org) or the Phorum License that was distributed with this file    //
-//                                                                            //
-//   This program is distributed in the hope that it will be useful,          //
-//   but WITHOUT ANY WARRANTY, without even the implied warranty of           //
-//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                     //
-//                                                                            //
-//   You should have received a copy of the Phorum License                    //
-//   along with this program.                                                 //
-//                                                                            //
-////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Copyright (C) 2016  Phorum Development Team                               //
+// http://www.phorum.org                                                     //
+//                                                                           //
+// This program is free software. You can redistribute it and/or modify      //
+// it under the terms of either the current Phorum License (viewable at      //
+// phorum.org) or the Phorum License that was distributed with this file     //
+//                                                                           //
+// This program is distributed in the hope that it will be useful,           //
+// but WITHOUT ANY WARRANTY, without even the implied warranty of            //
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                      //
+//                                                                           //
+// You should have received a copy of the Phorum License                     //
+// along with this program.                                                  //
+///////////////////////////////////////////////////////////////////////////////
 
 // if we are running in the webserver, bail out
 if ('cli' != php_sapi_name()) {
@@ -47,16 +47,11 @@ if(file_exists($PHORUM_DIRECTORY."/common.php")) {
 }
 
 // include required files
-require_once('./common.php');
-
-// Set the vroot id, which is not set automatically from common.php.
-$PHORUM['vroot'] = 0;
-
-require_once PHORUM_PATH.'/include/api/thread.php';
-require_once PHORUM_PATH.'/include/api/newflags.php';
+include_once './common.php';
+include_once ("./include/thread_info.php");
 
 // Make sure that the output is not buffered.
-phorum_api_buffer_clear();
+phorum_ob_clean();
 
 print "\n";
 print "Phorum stress testing tool\n";
@@ -100,7 +95,7 @@ if ($ucount > 0) {
     print "Creating $ucount random user(s):\n\n";
     for ($i = 0; $i < $ucount; $i++) {
         $name = $randomuserprefixes[array_rand($randomuserprefixes)];
-        $name .= random_int(1, 9999999);
+        $name .= rand(1, 9999999);
         $email = $name . '@example.com';
         $pass = "xxxxxxxx";
 
@@ -125,7 +120,7 @@ if (!count($user_ids))
     die ("No users found that can be used for posting.\n");
 
 // Retrieve forums to post in.
-$forums = $PHORUM['DB']->get_forums(0, NULL, 0);
+$forums = phorum_db_get_forums(0, NULL, 0);
 $forum_ids = array();
 foreach ($forums as $id => $forum) {
     if ($forum["folder_flag"]) continue;
@@ -177,7 +172,7 @@ if ($tcount)
                 "closed"    => 0,
             );
 
-            $PHORUM['DB']->post_message($msg);
+            phorum_db_post_message($msg);
 
             $thread = $msg["thread"];
             $treemsgs[] = $msg["message_id"];
@@ -185,7 +180,7 @@ if ($tcount)
             $parent = $treemsgs[array_rand($treemsgs)];
         }
 
-        phorum_api_thread_update_metadata($thread);
+        phorum_update_thread_info($thread);
 
         $tcount --;
     }
@@ -194,7 +189,7 @@ if ($tcount)
 
     foreach ($forum_ids as $id) {
         $PHORUM["forum_id"] = $id;
-        $PHORUM['DB']->update_forum_stats(true);
+        phorum_db_update_forum_stats(true);
     }
 }
 
@@ -202,14 +197,14 @@ if ($ncount)
 {
     print "\nSetting $ncount newflags for " . count($users) . " users:\n\n";
 
-    $recent = $PHORUM['DB']->get_recent_messages($ncount);
+    $recent = phorum_db_get_recent_messages($ncount);
 
     $markread = array();
     foreach ($recent as $id => $msg)
     {
         if($id == 'users') {
-        continue;
-      }
+            continue;
+        }
         $markread[] = array(
             "id"    => $id,
             "forum" => $msg["forum_id"]
@@ -220,7 +215,7 @@ if ($ncount)
     {
         print ".";
         $PHORUM["user"]["user_id"] = $user_id;
-        phorum_api_newflags_markread($markread, PHORUM_MARKREAD_MESSAGES);
+        phorum_db_newflag_add_read($markread);
     }
     print "\n";
 }

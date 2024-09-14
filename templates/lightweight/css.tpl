@@ -187,7 +187,7 @@ img {
     color: {new_color};
 }
 
-#phorum h4 a.new-flag {
+#phorum a.message-new {
     font-weight: bold;
 }
 
@@ -301,10 +301,6 @@ img {
     border-top: 0;
     padding: 5px;
     font-size: {font_small};
-}
-
-#phorum #breadcrumb .active {
-    font-weight: bold;
 }
 
 #phorum #user-info {
@@ -437,7 +433,6 @@ img {
     border: 1px solid {border_color};
     padding: 8px;
     text-align: center;
-    line-height: 2em;
 }
 
 /* Changes styles */
@@ -604,6 +599,14 @@ img {
     font-size: {font_xx_small};
     text-align: center;
 }
+
+
+
+
+
+
+
+
 
 /*   BBCode styles  */
 

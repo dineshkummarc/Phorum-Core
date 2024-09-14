@@ -15,10 +15,18 @@
       <firstname>Thomas</firstname>
       <surname>Seifert</surname>
     </author>
+    <author>
+      <firstname>Andy</firstname>
+      <surname>Taylor</surname>
+    </author>
+    <author>
+      <firstname>Joe</firstname>
+      <surname>Curia</surname>
+    </author>
   </authorgroup>
 
   <copyright>
-    <year>2016</year>
+    <year>2011</year>
     <holder>Phorum.org</holder>
   </copyright>
 

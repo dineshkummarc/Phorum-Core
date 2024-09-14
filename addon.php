@@ -1,21 +1,21 @@
 <?php
-////////////////////////////////////////////////////////////////////////////////
-//                                                                            //
-//   Copyright (C) 2016  Phorum Development Team                              //
-//   http://www.phorum.org                                                    //
-//                                                                            //
-//   This program is free software. You can redistribute it and/or modify     //
-//   it under the terms of either the current Phorum License (viewable at     //
-//   phorum.org) or the Phorum License that was distributed with this file    //
-//                                                                            //
-//   This program is distributed in the hope that it will be useful,          //
-//   but WITHOUT ANY WARRANTY, without even the implied warranty of           //
-//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                     //
-//                                                                            //
-//   You should have received a copy of the Phorum License                    //
-//   along with this program.                                                 //
-//                                                                            //
-////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Copyright (C) 2016  Phorum Development Team                               //
+// http://www.phorum.org                                                     //
+//                                                                           //
+// This program is free software. You can redistribute it and/or modify      //
+// it under the terms of either the current Phorum License (viewable at      //
+// phorum.org) or the Phorum License that was distributed with this file     //
+//                                                                           //
+// This program is distributed in the hope that it will be useful,           //
+// but WITHOUT ANY WARRANTY, without even the implied warranty of            //
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                      //
+//                                                                           //
+// You should have received a copy of the Phorum License                     //
+// along with this program.                                                  //
+///////////////////////////////////////////////////////////////////////////////
 
 // This script can be used for implementing addon scripts, using the
 // Phorum module system. This allows for full featured scripts, that
@@ -36,7 +36,7 @@
 //    function phorum_mod_foo_youraddonfunction() {
 //      # Code for implementing the addon goes here.
 //      # This can of course also be an include of a script
-//      # to run, using include "./mods/foo/yourscript.php";
+//      # to run, using include("./mods/foo/yourscript.php").
 //      # ...
 //    }
 //
@@ -54,9 +54,10 @@
 // ---------------------------
 //
 // If you want to link to the addon script, then always use the
-// phorum_api_url() function for generating the URL to link to.
+// phorum_get_url() function for generating the URL to link to.
 //
-//   $url = phorum_api_url(PHORUM_ADDON_URL, "module=foo");
+//   $url = phorum_get_url(PHORUM_ADDON_URL, "module=foo");
+//
 //
 // IMPLEMENTING MULTIPLE ADDON ACTIONS:
 // ------------------------------------
@@ -71,12 +72,12 @@
 // to see what action to perform. Generating an URL for this example
 // would look like this:
 //
-//   $url = phorum_api_url(PHORUM_ADDON_URL, "module=foo", "action=bar");
+//   $url = phorum_get_url(PHORUM_ADDON_URL, "module=foo", "action=bar");
 //
 
 define('phorum_page', 'addon');
 
-require_once './common.php';
+include_once('./common.php');
 
 // Search bots are trying to call this script without query string,
 // redirect to homepage.
@@ -86,10 +87,21 @@ if (!$_GET && !$_POST && !$PHORUM['args']) {
     exit;
 }
 
+// Check banlists.
+include_once('./include/profile_functions.php');
+$error = phorum_check_bans(array(array(NULL, PHORUM_BAD_IPS)));
+if (!empty($error)) {
+    // set all our URL's
+    phorum_build_common_urls();
+    $PHORUM['DATA']['ERROR'] = $error;
+    phorum_output('message');
+    exit;
+}
+
 // Bail out early if there are no modules enabled that implement
 // the addon hook.
 if (! isset($PHORUM["hooks"]["addon"])) trigger_error(
-    '<h1>Modscript Error</h1><br/>' .
+    '<h1>Modscript Error</h1><br />' .
     'There are no addon hook enabled modules active.',
     E_USER_ERROR
 );
@@ -106,7 +118,7 @@ if (isset($PHORUM['args']['module'])) {
 }
 
 if ($module === NULL) trigger_error(
-    '<h1>Modscript Error</h1><br/>' .
+    '<h1>Modscript Error</h1><br />' .
     'Missing "module" argument.',
     E_USER_ERROR
 );
@@ -127,22 +139,20 @@ foreach ($avail_hooks["mods"] as $id => $checkmodule) {
 
 if (count($filtered_hooks["mods"]) == 0) trigger_error(
     '<h1>Modscript Error</h1>' .
-    'No addon hook enabled for module "' .
-    phorum_api_format_htmlspecialchars($module) . '"',
+    'No addon hook enabled for module "'. htmlspecialchars($module, ENT_COMPAT, $PHORUM["DATA"]["HCHARSET"]) .'"',
     E_USER_ERROR
 );
 
 if (count($filtered_hooks["mods"]) > 1) trigger_error(
     '<h1>Modsript Error</h1>' .
     'More than one addon hook was registered ' .
-    'in the info for module "' .
-    phorum_api_format_htmlspecialchars($module) .
-    '".<br/>Only one addon hook is allowed per module.',
+    'in the info for module "' . htmlspecialchars($module, ENT_COMPAT, $PHORUM["DATA"]["HCHARSET"]) . '".<br />Only ' .
+    'one addon hook is allowed per module.',
     E_USER_ERROR
 );
 
 // Run the hook function.
 $PHORUM["hooks"]["addon"] = $filtered_hooks;
-phorum_api_hook("addon");
+phorum_hook("addon");
 
 ?>

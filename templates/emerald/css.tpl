@@ -195,7 +195,7 @@ img {
     color: {new_color};
 }
 
-#phorum h4 a.new-flag {
+#phorum a.message-new {
     font-weight: bold;
 }
 
@@ -309,10 +309,6 @@ img {
     border-top: 0;
     padding: 5px;
     font-size: {font_small};
-}
-
-#phorum #breadcrumb .active {
-    font-weight: bold;
 }
 
 #phorum #user-info {
@@ -442,7 +438,6 @@ img {
     background-color: {alt_background_color};
     border: 1px solid {border_color};
     line-height: 20px;
-
 }
 
 #phorum div.message-options {
@@ -458,7 +453,6 @@ img {
     border: 1px solid {border_color};
     padding: 8px;
     text-align: center;
-    line-height: 2em;
 }
 
 /* Changes styles */
@@ -627,11 +621,6 @@ img {
     text-align: center;
 }
 
-.phorum_busy_message {
-    border: 1px solid #cc7;
-    padding: 5px 5px 5px 30px;
-    background: #ff9 url({URL->TEMPLATE}/images/ajax_progress.gif) no-repeat 5px 5px;
-}
 
 /* Icon Styles */
 

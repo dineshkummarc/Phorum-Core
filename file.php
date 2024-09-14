@@ -16,11 +16,11 @@
 //   along with this program.                                                 //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
-
 define('phorum_page','file');
-require_once './common.php';
 
-require_once PHORUM_PATH.'/include/api/file.php';
+include_once("./common.php");
+include_once("./include/api/base.php");
+include_once("./include/api/file_storage.php");
 
 // We start a buffer here, so we can catch any (warning) output
 // from being prepended to file data that we return. The file
@@ -31,7 +31,8 @@ ob_start();
 // If this argument is missing, we redirect the user back to
 // the message list for the forum.
 if (empty($PHORUM["args"]["file"])) {
-    phorum_api_redirect(PHORUM_LIST_URL);
+    phorum_redirect_by_url(phorum_get_url(PHORUM_LIST_URL));
+    exit();
 }
 $file_id = (int) $PHORUM["args"]["file"];
 
@@ -41,11 +42,11 @@ $file = phorum_api_file_check_read_access($file_id);
 // Handle file access errors.
 if ($file === FALSE)
 {
-    $PHORUM["DATA"]["ERROR"] = phorum_api_error_message();
+    $PHORUM["DATA"]["ERROR"] = phorum_api_strerror();
 
     phorum_build_common_urls();
 
-    phorum_api_output("message");
+    phorum_output("message");
     return;
 }
 

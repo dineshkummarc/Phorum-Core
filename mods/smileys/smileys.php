@@ -2,7 +2,7 @@
 
 if(!defined("PHORUM")) return;
 
-require_once PHORUM_PATH.'/mods/smileys/defaults.php';
+require_once("./mods/smileys/defaults.php");
 
 // Register the additional CSS code for this module.
 function phorum_mod_smileys_css_register($data)
@@ -109,7 +109,6 @@ function phorum_mod_smileys_format_fixup($data)
 function phorum_mod_smileys_editor_tool_plugin()
 {
     global $PHORUM;
-
     $lang = $PHORUM["DATA"]["LANG"]["mod_smileys"];
 
     // Register the smiley tool button for the message body.
@@ -146,7 +145,7 @@ function phorum_mod_smileys_editor_tool_plugin()
     // Register the smileys help page.
     editor_tools_register_help(
         $description,
-        phorum_api_url(PHORUM_ADDON_URL, 'module=smileys', 'action=help')
+        phorum_get_url(PHORUM_ADDON_URL, 'module=smileys', 'action=help')
     );
 }
 
@@ -188,7 +187,7 @@ function phorum_mod_smileys_tpl_editor_disable_smileys()
     if (empty($PHORUM["mod_smileys"]["allow_disable_per_post"]))
         return;
 
-    include(phorum_api_template('smileys::disable_option'));
+    include(phorum_get_template('smileys::disable_option'));
 }
 
 // Process "Disable smileys" option from the message form.

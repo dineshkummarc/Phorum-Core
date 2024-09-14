@@ -221,19 +221,17 @@ Table of contents:
    |          | priority: run hook foo after *                            |
    |          | priority: run hook bar before smileys                     |
    |          |                                                           |
-   +----------+-------+---------------------------------------------------+
-   | required_version | This describes which phorum version is required   |
-   |                  | to use this module. Modules with a requirement    |
-   |                  | above the current phorum version are              |
-   |                  | automatically disabled when going to the modules  |
-   |                  | page.                                                    |
-   |                      |                                                   |
-   |                      | Example:                                          |
-   |                      |                                                   |
-   |                      | required_version: 5.2.0                           |
-   |                          | This will require the Phorum version at be at     |
-   |                  | least 5.2.0                                       |
-   +------------------+---------------------------------------------------+
+   +----------+-----------------------------------------------------------+-------+
+   | required_version | This describes which phorum version is required to use    |
+   |                  | this module. Modules with a requirement above the current |
+   |                  | phorum version are automatically disabled when going to   |
+   |                  | the modules page.                                         |
+   |                  |                                                           |
+   |                  | Example:                                                  |`
+   |                  |                                                           |
+   |                  | required_version: 5.2.0                                   |
+   |                  | This will require to be the phorum version at least 5.2.0 |
+   +------------------+-----------------------------------------------------------+
 
    It is allowed to use multiple hook lines in your module information,
    so your module can hook into multiple hooks. When doing this, it
@@ -580,7 +578,7 @@ Table of contents:
  2.6 Creating custom URLs
  -------------------------
 
-   Phorum uses the function phorum_api_url() to consistenly build URLs
+   Phorum uses the function phorum_get_url() to consistenly build URLs
    that point to parts of Phorum. It is recommended that you use this
    function as well when creating links yourself, so special features
    and future changes will automatically be incorporated in the links
@@ -589,7 +587,7 @@ Table of contents:
    Here's an example of building an URL, which will open the profile
    for the user with user_id = 17:
 
-      $url = phorum_api_url(PHORUM_PROFILE_URL, 17);
+      $url = phorum_get_url(PHORUM_PROFILE_URL, 17);
 
    The argument list that this function takes, depends on the first
    argument which tells Phorum what kind of URL has to be built.
@@ -597,7 +595,7 @@ Table of contents:
    be used.
 
    If you need to build a custom URL to link to your own module, you
-   can use phorum_api_url() as well. The way to go is simple. You
+   can use phorum_get_url() as well. The way to go is simple. You
    need to use PHORUM_CUSTOM_URL as the first argument and add all
    URL building parameters to it.
 
@@ -610,7 +608,7 @@ Table of contents:
    file "myfile.php". The URL has to have the forum_id in it and
    needs to contain the additional parameter "foo=bar":
 
-      $url = phorum_api_url(PHORUM_CUSTOM_URL, "myfile", 1, "foo=bar");
+      $url = phorum_get_url(PHORUM_CUSTOM_URL, "myfile", 1, "foo=bar");
 
 
  2.7 Implementing settings for your module
@@ -1090,7 +1088,7 @@ Table of contents:
 
    Where  : action_post.php
    When   : After storing a new message and all database updates are done.
-   Input  : Array containing message data (read-only).
+   Input  : Array containing message data.
    Return : Same as Input
 
    This hook can be used for performing actions based on what the message
@@ -1103,8 +1101,8 @@ Table of contents:
    Where  : action_post.php
    When   : After all posting work is done and just before the user is
             redirected back to the list.
-   Input  : Array containing message data (read-only).
-   Return : none
+   Input  : Array containing message data
+   Return : Same as input
 
    This hook can be used for performing actions based on what the message
    contained.  It is specifically useful for altering the redirect behavior.
@@ -1116,7 +1114,7 @@ Table of contents:
    When   : Right after a successful registration of a new user is done
             and all confirmation mails are sent.
    Input  : Array containing the user data of the user (read-only).
-   Return : Same as Input
+   Return : None
 
    This hook can be used for performing tasks (like logging and
    notification) after a successful user registration.
@@ -1306,15 +1304,15 @@ Table of contents:
    ----------------------------------------------------------------------------
    check_post
 
-   Where  : post.php
+   Where  : include/posting/check_integrity.php
    When   : Right after performing preliminary posting checks, unless
             these checks have returned something bad.
    Input  : Array containing:
-            0 => the $_POST array with form data
-            1 => $error, to return errors in
+            0 => an array of the message data
+            1 => $error, used to return an error message
    Return : Same as Input
 
-   This hook can be used for modifying data in the $_POST array and for
+   This hook can be used for modifying the message data and for
    running additional checks on the data. If an error is put in $error,
    Phorum will stop posting the message and show the error to the user
    in the post-form.
@@ -1422,17 +1420,17 @@ Table of contents:
    messages.
 
    ----------------------------------------------------------------------------
-   mail_prepare
+   email_user_start
 
-   Where  : include/api/mail.php
+   Where  : include/email_functions.php
    When   : Right at the beginning of the function, before any modification of data
    Input  : array of addresses and data (which are both an array of their own)
    Return : array of addresses and data
 
-   This hook is put at the very beginning of phorum_api_mail and is therefore
-   called for *every* email that is send from phorum.
-   It is put before every replacement done in that function so that every data
-   which is send to that function can be replaced/changed at will
+   This hook is put at the very beginning of phorum_email_user and is therefore
+   called for *every* email that is sent from phorum.
+   It is put before every replacement done in that function so that all data
+   which is sent to that function can be replaced/changed at will.
 
    ----------------------------------------------------------------------------
    end_output
@@ -1476,10 +1474,11 @@ Table of contents:
 
    Where  : login.php
    When   : When a user login fails.
-   Input  : An array containing three fields: username, password and location.
+   Input  : An array containing three fields: username, password and location
+            (read-only).
             The location field specifies where the login failure occurred and
             its value can be either "forum" or "admin".
-   Return : Same as Input
+   Return : None
 
    This hook can be used for tracking failing login attempts. This can be used
    for things like logging or implementing login failure penalties (like
@@ -1501,8 +1500,8 @@ Table of contents:
    ----------------------------------------------------------------------------
    format
 
-   Where  : phorum_api_message_format()
-   When   : Everytime phorum_api_message_format() is called for formatting
+   Where  : phorum_format_messages() in include/format_functions.php
+   When   : Everytime phorum_format_messages() is called for formatting
             a message, just before it is sent to the templates.
    Input  : Array of messages.
    Return : Same as Input
@@ -1631,7 +1630,7 @@ Table of contents:
    of the posting fields in $PHORUM["posting_fields"].
 
    ----------------------------------------------------------------------------
-   posting_permission
+   posting_permissions
 
    Where  : posting.php
    When   : Right after Phorum has determined all abilities that apply
@@ -1665,7 +1664,7 @@ Table of contents:
    ----------------------------------------------------------------------------
    before_post
 
-   Where  : post.php
+   Where  : include/posting/action_post.php
    When   : Right before storing a new message in the database.
    Input  : Array containing message data.
    Return : Same as Input
@@ -1844,7 +1843,7 @@ Table of contents:
       # php ./script.php --scheduled
 
    When creating a scheduling service entry for running this
-   automatically, then remind to change the directory as well.
+   automatically, remember to change the directory as well.
    You might also have to use the full path to your PHP binary
    (/usr/bin/php or whatever it is on your system), because
    the scheduling service might not know the path to it. An entry
@@ -1893,7 +1892,7 @@ Table of contents:
    ----------------------------------------------------------------------------
    send_mail
 
-   Where  : include/api/mail.php in the function phorum_api_mail()
+   Where  : include/email_functions.php in the function phorum_email_user()
    When   : Right before email is sent using PHP's mail() function.
    Input  : Array with maildata (read-only) containing:
             addresses => Array of e-mail addresses,
@@ -2065,7 +2064,7 @@ Table of contents:
            </td>
            <td>
              <input type="text" name="mod_foo"
-              value="<?php print htmlspecialchars($value) ?>"/>
+              value="<?php print htmlspecialchars($value) ?>" />
            </td>
          </tr>
          <?php

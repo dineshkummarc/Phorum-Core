@@ -25,7 +25,7 @@ function phorum_check_settings($is_install = FALSE)
 {
     global $PHORUM;
 
-    if (!function_exists("finfo_open") && !empty($PHORUM['file_fileinfo_ext'])) {
+    if(!function_exists("finfo_open") && !empty($PHORUM['file_fileinfo_ext'])) {
         return array (
             PHORUM_SANITY_WARN,
             "You have \"Use the fileinfo extension for mime-type detection\" enabled but the fileinfo extension isn't installed.",

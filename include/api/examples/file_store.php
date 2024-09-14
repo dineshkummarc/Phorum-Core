@@ -1,7 +1,10 @@
 <?php
 # Store a personal file for a user.
 
-require_once './include/api/file.php';
+if (!defined('PHORUM')) return;
+
+require_once("./include/api/base.php");
+require_once("./include/api/file_storage.php");
 
 $file = array(
     "filename"  => "myfile.ext",   // the name of the file
@@ -12,6 +15,6 @@ $file = array(
 
 if (!phorum_api_file_check_write_access($file) ||
     !phorum_api_file_store($file)) {
-    die("Storing the file failed. The error was: " . phorum_api_error_message());
+    die("Storing the file failed. The error was: " . phorum_api_strerror());
 }
 ?>

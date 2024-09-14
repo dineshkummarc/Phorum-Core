@@ -2,7 +2,9 @@
   <table class="PhorumFormTable" cellspacing="0" border="0">
     {! A submit button that will be used to catch users pressing enter }
     <script type="text/javascript">
+    // <![CDATA[
       document.write('<input type="submit" name="ignore" style="display:none">');
+    // ]]>
     </script>
     {! Author =================================================================== }
     <tr>
@@ -47,8 +49,7 @@
         <td>{LANG->Special}:&nbsp;</td>
         <td>
           {IF SHOW_SPECIALOPTIONS}{IF OPTION_ALLOWED->sticky}
-            <input type="checkbox" id="sticky" name="sticky" value="1"
-             {IF POSTING->special "sticky"}checked="checked"{/IF} />
+            <input type="checkbox" id="sticky" name="sticky" value="1" {IF POSTING->special "sticky"}checked="checked"{/IF} />
             <label for="sticky">{LANG->MakeSticky}</label>
           {/IF}{/IF}
           {IF OPTION_ALLOWED->allow_reply}
@@ -69,7 +70,7 @@
 
           {IF OPTION_ALLOWED->subscribe_mail}
             <div id="subscription_mail_div">
-              <img src="{URL->TEMPLATE}/images/tree-L.gif" border="0"/>
+              <img src="{URL->TEMPLATE}/images/tree-L.gif" border="0" alt="" />
               <input type="checkbox" id="subscription_mail" name="subscription_mail" value="1" {IF POSTING->subscription "message"}checked="checked"{/IF} /> <label for="subscription_mail">{LANG->EmailReplies}</label>
             </div>
 

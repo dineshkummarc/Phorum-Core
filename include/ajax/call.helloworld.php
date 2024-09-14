@@ -1,6 +1,6 @@
 <?php
 /*
-CALL
+FUNCTION
 
     helloworld - the obligatory hello world example
 
@@ -13,10 +13,10 @@ ARGUMENTS
 
 EXAMPLE JSON REQUESTS
 
-    { call : "helloworld" }
+    { "call": "helloworld" }
 
-    { call : "helloworld",
-      who  : "John Doe" }
+    { "call": "helloworld",
+      "who": "John Doe" }
 
 RETURN VALUE
 
@@ -38,6 +38,6 @@ if (!defined("PHORUM")) return;
 
 $who = phorum_ajax_getarg('who', 'string', 'world');
 
-phorum_ajax_return("Hello, $who!");
+phorum_ajax_return("hello, $who");
 
 ?>

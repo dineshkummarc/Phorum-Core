@@ -1,12 +1,6 @@
 <?php
 if(!defined("PHORUM_ADMIN")) return;
 
-if(!empty($PHORUM['DBCONFIG']['charset'])) {
-    $charset = " DEFAULT CHARACTER SET {$PHORUM['DBCONFIG']['charset']}";
-} else {
-    $charset = "";
-}
-
 // Create tables for the new PM system.
 
 $upgrade_queries[]= "CREATE TABLE {$PHORUM["pm_messages_table"]} (
@@ -18,7 +12,7 @@ $upgrade_queries[]= "CREATE TABLE {$PHORUM["pm_messages_table"]} (
     datestamp int(10) unsigned NOT NULL default '0',
     meta mediumtext NOT NULL,
     PRIMARY KEY (pm_message_id)
-) $charset";
+)";
 
 $upgrade_queries[] = "CREATE TABLE {$PHORUM["pm_folders_table"]} (
     pm_folder_id int(10) unsigned NOT NULL auto_increment,
@@ -26,7 +20,7 @@ $upgrade_queries[] = "CREATE TABLE {$PHORUM["pm_folders_table"]} (
     foldername varchar(20) NOT NULL default '',
     KEY user_id (user_id),
     PRIMARY KEY (pm_folder_id)
-) $charset";
+)";
 
 $upgrade_queries[] = "CREATE TABLE {$PHORUM["pm_xref_table"]} (
     pm_xref_id int(10) unsigned NOT NULL auto_increment,
@@ -39,17 +33,17 @@ $upgrade_queries[] = "CREATE TABLE {$PHORUM["pm_xref_table"]} (
     PRIMARY KEY (pm_xref_id),
     KEY xref (user_id,pm_folder_id,pm_message_id),
     KEY read_flag (read_flag)
-) $charset";
+)";
 
 // converting the old PM system to the new one.
 $old_table = "{$PHORUM['DBCONFIG']['table_prefix']}_private_messages";
-$res = $PHORUM['DB']->interact(
+$res = phorum_db_interact(
     DB_RETURN_RES,
     "SELECT *
      FROM   $old_table",
     NULL, DB_MASTERQUERY
 );
-while ($row = $PHORUM['DB']->fetch_row($res, DB_RETURN_ASSOC))
+while ($row = phorum_db_fetch_row($res, DB_RETURN_ASSOC))
 {
     // Put the message in the message table.
     $meta = serialize(array(

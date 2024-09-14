@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,16 +15,16 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_CONTROL_CENTER")) return;
+if(!defined("PHORUM_CONTROL_CENTER")) return;
 
-require_once PHORUM_PATH.'/include/api/file.php';
-require_once PHORUM_PATH.'/include/api/format/messages.php';
+require_once("./include/api/base.php");
+require_once("./include/api/file_storage.php");
 
 if (!$PHORUM["DATA"]["MESSAGE_MODERATOR"]) {
-    phorum_api_redirect(PHORUM_CONTROLCENTER_URL);
+    phorum_redirect_by_url(phorum_get_url(PHORUM_CONTROLCENTER_URL));
+    exit();
 }
 
 // the number of days to show
@@ -69,13 +70,14 @@ $mod_forums = phorum_api_user_check_access(
 $gotforums = (count($mod_forums) > 0);
 
 
-if ($gotforums && isset($_POST['deleteids']) && count($_POST['deleteids']))
-{
+if($gotforums && isset($_POST['deleteids']) && count($_POST['deleteids'])) {
+    //print_var($_POST['deleteids']);
     $deleteids = $_POST['deleteids'];
     foreach($deleteids as $did => $did_var) {
         $deleteids[$did] = (int)$did_var;
     }
-    $delete_messages = $PHORUM['DB']->get_message(array_keys($deleteids),'message_id',true);
+    $delete_messages = phorum_db_get_message(array_keys($deleteids),'message_id',true);
+    //print_var($delete_messages);
     foreach($deleteids as $msgthd_id => $doit) {
 
         // A hook to allow modules to implement extra or different
@@ -85,16 +87,16 @@ if ($gotforums && isset($_POST['deleteids']) && count($_POST['deleteids']))
 
             $delete_handled = 0;
             if (isset($PHORUM["hooks"]["before_delete"]))
-                list($delete_handled,$msg_ids,$msgthd_id,$delete_messages[$msgthd_id],$delete_mode) = phorum_api_hook("before_delete", array(0,0,$msgthd_id,$delete_messages[$msgthd_id],PHORUM_DELETE_MESSAGE));
+                list($delete_handled,$msg_ids,$msgthd_id,$delete_messages[$msgthd_id],$delete_mode) = phorum_hook("before_delete", array(0,0,$msgthd_id,$delete_messages[$msgthd_id],PHORUM_DELETE_MESSAGE));
 
             // Handle the delete action, unless a module already handled it.
             if (!$delete_handled) {
 
                 // Delete the message from the database.
-                $PHORUM['DB']->delete_message($msgthd_id, PHORUM_DELETE_MESSAGE);
+                phorum_db_delete_message($msgthd_id, PHORUM_DELETE_MESSAGE);
 
                 // Delete the message attachments from the database.
-                $files=$PHORUM['DB']->get_message_file_list($msgthd_id);
+                $files=phorum_db_get_message_file_list($msgthd_id);
                 foreach($files as $file_id=>$data) {
                     if (phorum_api_file_check_delete_access($file_id)) {
                         phorum_api_file_delete($file_id);
@@ -103,9 +105,8 @@ if ($gotforums && isset($_POST['deleteids']) && count($_POST['deleteids']))
             }
 
             // Run a hook for performing custom actions after cleanup.
-            if (isset($PHORUM["hooks"]["delete"])) {
-                phorum_api_hook("delete", array($msgthd_id));
-            }
+            if (isset($PHORUM["hooks"]["delete"]))
+                phorum_hook("delete", array($msgthd_id));
         }
 
     }
@@ -113,11 +114,10 @@ if ($gotforums && isset($_POST['deleteids']) && count($_POST['deleteids']))
 
 $PHORUM['DATA']['PREPOST'] = array();
 
-if ($gotforums) {
-    $foruminfo = phorum_api_forums_get($mod_forums, NULL, NULL, $PHORUM['vroot']);
-} else {
+if ($gotforums)
+    $foruminfo = phorum_db_get_forums($mod_forums, NULL, $PHORUM['vroot']);
+else
     $foruminfo = array();
-}
 
 foreach($mod_forums as $forum => $rest) {
 
@@ -125,7 +125,7 @@ foreach($mod_forums as $forum => $rest) {
     // Get the threads
     $rows = array();
     // get the thread set started
-    $rows = $PHORUM['DB']->get_unapproved_list($forum,$showwaiting,$moddays);
+    $rows = phorum_db_get_unapproved_list($forum,$showwaiting,$moddays);
 
     // loop through and read all the data in.
     foreach($rows as $key => $row) {
@@ -135,18 +135,19 @@ foreach($mod_forums as $forum => $rest) {
         if ($checkvar)
             $checkvar = 0;
         $rows[$key]['forum_id'] = $forum;
-        $rows[$key]["URL"]["READ"] = phorum_api_url(PHORUM_FOREIGN_READ_URL, $forum, $row["thread"], $row['message_id']);
+        $rows[$key]["URL"]["READ"] = phorum_get_url(PHORUM_FOREIGN_READ_URL, $forum, $row["thread"], $row['message_id']);
         // we need to fake the forum_id here
         $PHORUM["forum_id"] = $forum;
-        $rows[$key]["URL"]["APPROVE_MESSAGE"] = phorum_api_url(PHORUM_MODERATION_URL, PHORUM_APPROVE_MESSAGE, $row["message_id"], "prepost=1", "old_forum=" . $oldforum,"onlyunapproved=".$showwaiting,"moddays=".$moddays);
-        $rows[$key]["URL"]["APPROVE_TREE"] = phorum_api_url(PHORUM_MODERATION_URL, PHORUM_APPROVE_MESSAGE_TREE, $row["message_id"], "prepost=1", "old_forum=" . $oldforum,"onlyunapproved=".$showwaiting,"moddays=".$moddays);
-        $rows[$key]["URL"]["DELETE"] = phorum_api_url(PHORUM_MODERATION_URL, PHORUM_DELETE_TREE, $row["message_id"], "prepost=1", "old_forum=" . $oldforum,"onlyunapproved=".$showwaiting,"moddays=".$moddays);
+        $rows[$key]["URL"]["APPROVE_MESSAGE"] = phorum_get_url(PHORUM_MODERATION_URL, PHORUM_APPROVE_MESSAGE, $row["message_id"], "prepost=1", "old_forum=" . $oldforum,"onlyunapproved=".$showwaiting,"moddays=".$moddays);
+        $rows[$key]["URL"]["APPROVE_TREE"] = phorum_get_url(PHORUM_MODERATION_URL, PHORUM_APPROVE_MESSAGE_TREE, $row["message_id"], "prepost=1", "old_forum=" . $oldforum,"onlyunapproved=".$showwaiting,"moddays=".$moddays);
+        $rows[$key]["URL"]["DELETE"] = phorum_get_url(PHORUM_MODERATION_URL, PHORUM_DELETE_TREE, $row["message_id"], "prepost=1", "old_forum=" . $oldforum,"onlyunapproved=".$showwaiting,"moddays=".$moddays);
         $PHORUM["forum_id"] = $oldforum;
         $rows[$key]["raw_short_datestamp"] = $row["datestamp"];
-        $rows[$key]["short_datestamp"] = phorum_api_format_date($PHORUM["short_date_time"], $row["datestamp"]);
+        $rows[$key]["short_datestamp"] = phorum_date($PHORUM["short_date_time"], $row["datestamp"]);
     }
 
-    $rows = phorum_api_format_messages($rows);
+    require_once("./include/format_functions.php");
+    $rows = phorum_format_messages($rows);
     $PHORUM['DATA']['PREPOST'] = array_merge($PHORUM['DATA']['PREPOST'], $rows);
 }
 
@@ -154,6 +155,8 @@ foreach($mod_forums as $forum => $rest) {
 if (!$numunapproved) {
     $PHORUM["DATA"]["UNAPPROVEDMESSAGE"] = $PHORUM["DATA"]["LANG"]["NoUnapprovedMessages"];
 }
+
+$PHORUM["DATA"]["HEADING"] = $PHORUM["DATA"]["LANG"]["UnapprovedMessages"];
 
 $template = "cc_prepost";
 ?>

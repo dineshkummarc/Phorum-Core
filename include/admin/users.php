@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -17,16 +18,7 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_ADMIN")) return;
-
-if(defined('PHORUM_LARGE_USERBASE')) {
-    $large_userbase = 1;
-} else {
-    $large_userbase = 0;
-}
-
-require_once './include/api/forums.php';
-require_once PHORUM_PATH.'/include/api/mail.php';
+if(!defined("PHORUM_ADMIN")) return;
 
 $user_status_map = array(
     'any'                     => 'Any user status',
@@ -112,29 +104,37 @@ if(count($_POST))
             phorum_admin_okmsg("$count User(s) deleted.");
         }
 
-    //process new user data
+    // process force password change
+    } elseif (isset($_POST['forcePasswordChange'])) {
+        phorum_api_user_force_password_change($PHORUM['user']['user_id']);
+        phorum_admin_okmsg('Forced password change for all users (except you).');
+
+    // process new user data
     } elseif (isset($_POST["addUser"])) {
 
         $user_data = $_POST;
 
-        //check for pre-existing username
+        // check for pre-existing username
         if (!empty($_POST["username"])) {
             $existing_user = phorum_api_user_search("username", $_POST["username"]);
             if (!empty($existing_user))
-                $error = 'The user name "'.htmlspecialchars($_POST[username]).'" is already in use!';
+                $error = 'The user name "'.htmlspecialchars($_POST['username']).'" is already in use!';
         } else {
             $error = "You must provide a user name!";
         }
 
-        //check for a valid email
+        // check for a valid email
         if (!empty($_POST["email"])) {
-            $valid_email = phorum_api_mail_check_address($_POST["email"]);
+            include('./include/email_functions.php');
+            $valid_email = phorum_valid_email($_POST["email"]);
             if ($valid_email !== true)
                 $error = 'The email "'.htmlspecialchars($_POST[email]).'" is not valid!';
         } else {
             $error = "You must provide an e-mail!";
         }
-        //check for password and password confirmation
+
+
+        // check for password and password confirmation
         if(isset($_POST['password1']) && !empty($_POST['password1']) && !empty($_POST['password2']) && $_POST['password1'] != $_POST['password2']) {
             $error="Passwords don't match!";
         } elseif(!empty($_POST['password1']) && !empty($_POST['password2'])) {
@@ -165,6 +165,7 @@ if(count($_POST))
         $user_data=$_POST;
 
         switch( $_POST["section"] ) {
+
 
             case "forums":
 
@@ -214,7 +215,6 @@ if(count($_POST))
                 break;
 
             case "groups":
-
                 $groupdata = array();
 
                 if($_POST["new_group"]){
@@ -245,24 +245,10 @@ if(count($_POST))
         } elseif(!empty($_POST['password1']) && !empty($_POST['password2'])) {
             $user_data['password']=$_POST['password1'];
             $user_data['password_temp']=$_POST['password1'];
+            $user_data['force_password_change']=0;
         }
 
-        if (isset($user_data['username'])) {
-            // Trim and collapse spaces to prevent usernames that visually
-            // look the same (since browsers collapse multiple spaces in HTML).
-            $user_data['username'] = preg_replace('/\s+/', ' ', trim($user_data['username']));
-
-            // In case of errors we have to show the possibly modified username.
-            $_POST['username'] = $user_data['userdata'];
-
-            // Check if the username isn't already taken by another user.
-            $existing = phorum_api_user_search('username', $user_data['username']);
-            if ($existing && $existing != $user_data['user_id']) {
-              $error = "That username is already in use by another user";
-            }
-        }
-
-        // Clean up fields from the $_POST data that are not in the user data.
+        // clean up
         unset($user_data["module"]);
         unset($user_data["section"]);
         unset($user_data["password1"]);
@@ -271,13 +257,12 @@ if(count($_POST))
         unset($user_data["phorum_admin_token"]);
 
         if (empty($error)){
-            $user_data = phorum_api_hook("admin_users_form_save", $user_data);
+            $user_data = phorum_hook("admin_users_form_save", $user_data);
             if (isset($user_data["error"])) {
                 $error = $user_data["error"];
                 unset($user_data["error"]);
             }
         }
-
         if(empty($error)){
             phorum_api_user_save($user_data);
             phorum_admin_okmsg("User Saved");
@@ -290,19 +275,25 @@ if ($error) {
     phorum_admin_error($error);
 }
 
-require_once './include/admin/PhorumInputForm.php';
+include_once "./include/admin/PhorumInputForm.php";
+include_once "./include/profile_functions.php";
 
 if(!defined("PHORUM_ORIGINAL_USER_CODE") || PHORUM_ORIGINAL_USER_CODE!==true){
     echo "Phorum User Admin only works with the Phorum User System.";
     return;
 }
 
-if (!isset($_GET["edit"]) && !isset($_GET["add"]) && !isset($addUser_error) && !isset($_POST['section']))
+if (    !isset($_GET['edit'])
+     && !isset($_GET['add']) && !isset($addUser_error)
+     && !isset($_POST['section'])
+     && !isset($_REQUEST['forcePasswordChange']) )
 {
     $users_url = phorum_admin_build_url(array('module=users'));
     $users_add_url = phorum_admin_build_url(array('module=users','add=1'));
-    print "<a href=\"$users_url\">" .
-          "Show all users</a> | <a href=\"$users_add_url\">Add User</a><br/>";
+    $users_force_password_change_url = phorum_admin_build_url(array('module=users','forcePasswordChange=1'));
+    print "<a href=\"$users_url\">Show all users</a> "
+              ."| <a href=\"$users_add_url\">Add User</a> "
+              ."| <a href=\"$users_force_password_change_url\">Force password change for all users</a><br />";
 
     if (empty($_REQUEST["user_id"]))
     {
@@ -332,74 +323,75 @@ if (!isset($_GET["edit"]) && !isset($_GET["add"]) && !isset($addUser_error) && !
             $frm->select_tag("registered_op", array("lt" => "Longer ago than", "gte" => "Within the last"), $_REQUEST["registered_op"]) . " " .
             $frm->text_box("registered", empty($_REQUEST["registered"]) ? "" : (int) $_REQUEST["registered"], 5) . " days"
             );
-        // skip this part for large user bases
-        if(!$large_userbase) {
-            $forum_permissions_forums_list = array();
 
-            $forum_permissions_forums = $PHORUM['DB']->get_forums();
+        $forum_permissions_forums_list = array();
 
-            $forum_permissions_forumpaths = phorum_get_forum_info(1);
-            foreach($forum_permissions_forumpaths as $forum_id => $forumname) {
-                if($forum_permissions_forums[$forum_id]['folder_flag'] == 0)
-                    $forum_permissions_forums_list[$forum_id]=$forumname;
-            }
+        $forum_permissions_forums = phorum_db_get_forums();
 
-            if(count($forum_permissions_forums_list)) {
-                $forum_permissions_forums_select = "<select name=\"forum_permissions_forums[]\" multiple=\"multiple\" size=\"2\">\n";
-                if(!empty($_REQUEST['forum_permissions_forums'])) {
-                    if (is_array($_REQUEST['forum_permissions_forums'])) {
-                        foreach ($_REQUEST['forum_permissions_forums'] as $forum_permissions_forum) {
-                            $selected_forum_permissions_forums[$forum_permissions_forum] = $forum_permissions_forum;
-                        }
-                    } else {
-                        $selected_forum_permissions_forums[(int)$_REQUEST['forum_permissions_forums']] = (int)$_REQUEST['forum_permissions_forums'];
-                    }
-                }
-                foreach ($forum_permissions_forums_list as $forum_id => $forumname) {
-                    $forum_permissions_forums_select .= "<option value=\"$forum_id\"";
-                    if (isset($selected_forum_permissions_forums[$forum_id]))
-                        $forum_permissions_forums_select .= " selected='selected'";
-                    $forum_permissions_forums_select .= ">$forumname</option>";
-                }
-                $forum_permissions_forums_select .= "</select>";
-
-                $forum_permissions = array(
-                    PHORUM_USER_ALLOW_READ => "Read",
-                    PHORUM_USER_ALLOW_REPLY => "Reply",
-                    PHORUM_USER_ALLOW_NEW_TOPIC => "Create New Topics",
-                    PHORUM_USER_ALLOW_EDIT => "Edit Their Posts",
-                    PHORUM_USER_ALLOW_ATTACH => "Attach Files",
-                    PHORUM_USER_ALLOW_MODERATE_MESSAGES => "Moderate Messages",
-                    PHORUM_USER_ALLOW_MODERATE_USERS => "Moderate Users"
-                    );
-
-                $forum_permissions_select = "<select name=\"forum_permissions[]\" multiple=\"multiple\" size=\"2\">\n";
-                if(!empty($_REQUEST['forum_permissions'])) {
-                    if (is_array($_REQUEST['forum_permissions'])) {
-                        foreach ($_REQUEST['forum_permissions'] as $forum_permission) {
-                            $selected_forum_permissions[$forum_permission] = $forum_permission;
-                        }
-                    } else {
-                        $selected_forum_permissions[(int)$_REQUEST['forum_permissions']] = (int)$_REQUEST['forum_permissions'];
-                    }
-                }
-
-                foreach($forum_permissions as $forum_permission => $forum_permission_description) {
-
-                    $forum_permissions_select .= "<option value=\"".$forum_permission."\"";
-                    if (isset($selected_forum_permissions[$forum_permission]))
-                        $forum_permissions_select .= " selected=\"selected\"";
-                    $forum_permissions_select .= ">".$forum_permission_description."</option>\n";
-                }
-
-                $forum_permissions_select .= "</select>\n";
-
-                $frm->addrow("Personal permission to", $forum_permissions_select . "&nbsp;in&nbsp;" . $forum_permissions_forums_select);
-            }
+        $forum_permissions_forumpaths = phorum_get_forum_info(1);
+        foreach($forum_permissions_forumpaths as $forum_id => $forumname) {
+            if($forums[$forum_id]['folder_flag'] == 0)
+                $forum_permissions_forums_list[$forum_id]=$forumname;
         }
 
+        if(count($forum_permissions_forums_list)) {
+            $forum_permissions_forums_select = "<select name=\"forum_permissions_forums[]\" multiple=\"multiple\" size=\"2\">\n";
+            if(!empty($_REQUEST['forum_permissions_forums'])) {
+                if (is_array($_REQUEST['forum_permissions_forums'])) {
+                    foreach ($_REQUEST['forum_permissions_forums'] as $forum_permissions_forum) {
+                        $selected_forum_permissions_forums[$forum_permissions_forum] = $forum_permissions_forum;
+                    }
+                } else {
+                    $selected_forum_permissions_forums[(int)$_REQUEST['forum_permissions_forums']] = (int)$_REQUEST['forum_permissions_forums'];
+                }
+            }
+            foreach ($forum_permissions_forums_list as $forum_id => $forumname) {
+                $forum_permissions_forums_select .= "<option value=\"$forum_id\"";
+                if (isset($selected_forum_permissions_forums[$forum_id]))
+                    $forum_permissions_forums_select .= " selected='selected'";
+                $forum_permissions_forums_select .= ">$forumname</option>";
+            }
+            $forum_permissions_forums_select .= "</select>";
+
+            $forum_permissions = array(
+                PHORUM_USER_ALLOW_READ => "Read",
+                PHORUM_USER_ALLOW_REPLY => "Reply",
+                PHORUM_USER_ALLOW_NEW_TOPIC => "Create New Topics",
+                PHORUM_USER_ALLOW_EDIT => "Edit Their Posts",
+                PHORUM_USER_ALLOW_ATTACH => "Attach Files",
+                PHORUM_USER_ALLOW_MODERATE_MESSAGES => "Moderate Messages",
+                PHORUM_USER_ALLOW_MODERATE_USERS => "Moderate Users"
+                );
+
+            $forum_permissions_select = "<select name=\"forum_permissions[]\" multiple=\"multiple\" size=\"2\">\n";
+            if(!empty($_REQUEST['forum_permissions'])) {
+                if (is_array($_REQUEST['forum_permissions'])) {
+                    foreach ($_REQUEST['forum_permissions'] as $forum_permission) {
+                        $selected_forum_permissions[$forum_permission] = $forum_permission;
+                    }
+                } else {
+                    $selected_forum_permissions[(int)$_REQUEST['forum_permissions']] = (int)$_REQUEST['forum_permissions'];
+                }
+            }
+
+            foreach($forum_permissions as $forum_permission => $forum_permission_description) {
+
+                $forum_permissions_select .= "<option value=\"".$forum_permission."\"";
+                if (isset($selected_forum_permissions[$forum_permission]))
+                    $forum_permissions_select .= " selected=\"selected\"";
+                $forum_permissions_select .= ">".$forum_permission_description."</option>\n";
+            }
+
+            $forum_permissions_select .= "</select>\n";
+
+            $frm->addrow("Personal permission to", $forum_permissions_select . "&nbsp;in&nbsp;" . $forum_permissions_forums_select);
+        }
+
+        if (isset($PHORUM['PROFILE_FIELDS']["num_fields"]))
+            unset($PHORUM['PROFILE_FIELDS']["num_fields"]);
+
         $active_profile_fields = 0;
-        foreach($PHORUM["CUSTOM_FIELDS"][PHORUM_CUSTOM_FIELD_USER] as $profile_field) {
+        foreach($PHORUM["PROFILE_FIELDS"] as $profile_field) {
             if (empty($profile_field['deleted']) && !empty($profile_field['show_in_admin'])) $active_profile_fields ++;
         }
 
@@ -419,7 +411,7 @@ if (!isset($_GET["edit"]) && !isset($_GET["add"]) && !isset($addUser_error) && !
                 }
             }
 
-            foreach($PHORUM["CUSTOM_FIELDS"][PHORUM_CUSTOM_FIELD_USER] as $key => $profile_field) {
+            foreach($PHORUM["PROFILE_FIELDS"] as $key => $profile_field) {
                 // Do not show deleted fields.
                 if (!empty($profile_field['deleted']) || empty($profile_field['show_in_admin'])) continue;
 
@@ -434,49 +426,51 @@ if (!isset($_GET["edit"]) && !isset($_GET["add"]) && !isset($addUser_error) && !
                 . $frm->select_tag("profile_field_search_loc", $field_search_loc_array, $_REQUEST["profile_field_search_loc"])
                 . "&nbsp;in&nbsp;" . $profile_field_select);
         }
-        // skip this part for large user bases
-        if(!$large_userbase) {
-            $db_groups = $PHORUM['DB']->get_groups(0,true);
-            if (count($db_groups)) {
-                $multiple = (count($db_groups) > 1) ? "multiple=\"multiple\" size=\"2\"" : "";
-                $group_select = "<select name=\"member_of_group[]\" $multiple>\n";
-                if (!$multiple) {
-                   $group_select .= '<option value="">Any group</option>';
-                }
-                $selected_groups = array();
-                if(!empty($_REQUEST['member_of_group'])) {
-                    if (is_array($_REQUEST['member_of_group'])) {
-                        foreach ($_REQUEST['member_of_group'] as $group_id) {
-                            $selected_groups[$group_id] = $group_id;
-                        }
-                    } else {
-                        $selected_groups[(int)$_REQUEST['member_of_group']] = (int)$_REQUEST['member_of_group'];
-                    }
-                }
-                foreach ($db_groups as $group_id => $group) {
-                    $group_select .= "<option value=\"$group_id\"";
-                    if (isset($selected_groups[$group_id])) $group_select .= " selected=\"selected\"";
-                    $group_select .= ">".$group["name"]."</option>\n";
-                }
-                $group_select .= "</select>\n";
-                $frm->addrow("Member of group", $group_select);
+        $db_groups = phorum_db_get_groups(0,true);
+        if (count($db_groups)) {
+            $multiple = (count($db_groups) > 1) ? "multiple=\"multiple\" size=\"3\"" : "";
+
+            $group_select = "<select name=\"member_of_group[]\" $multiple>\n";
+            if (!$multiple) {
+                $group_select .= '<option value="">Any group</option>';
             }
+
+            $selected_groups = array();
+            if(!empty($_REQUEST['member_of_group'])) {
+                if (is_array($_REQUEST['member_of_group'])) {
+                    foreach ($_REQUEST['member_of_group'] as $group_id) {
+                        $selected_groups[$group_id] = $group_id;
+                    }
+                } else {
+                    $selected_groups[(int)$_REQUEST['member_of_group']] = (int)$_REQUEST['member_of_group'];
+                }
+            }
+
+            ksort($db_groups);
+
+            foreach ($db_groups as $group_id => $group) {
+                $group_select .= "<option value=\"$group_id\"";
+                if (isset($selected_groups[$group_id])) $group_select .= " selected=\"selected\"";
+                $group_select .= ">".$group["name"]."</option>\n";
+            }
+            $group_select .= "</select>\n";
+            $frm->addrow("Member of group", $group_select);
         }
 
         $frm->show();
     }
 
 ?>
-    <hr class=\"PhorumAdminHR\" />
+    <hr class="PhorumAdminHR" />
 
     <script type="text/javascript">
-    <!--
-    function CheckboxControl(form, onoff) {
-        for (var i = 0; i < form.elements.length; i++)
-            if (form.elements[i].type == "checkbox")
-                form.elements[i].checked = onoff;
-    }
-    // -->
+    // <![CDATA[
+        function CheckboxControl(form, onoff) {
+            for (var i = 0; i < form.elements.length; i++)
+                if (form.elements[i].type == "checkbox")
+                    form.elements[i].checked = onoff;
+        }
+    // ]]>
     </script>
 <?php
 
@@ -634,14 +628,21 @@ if (!isset($_GET["edit"]) && !isset($_GET["add"]) && !isset($addUser_error) && !
     }
     if (!empty($_REQUEST["member_of_group"])) {
         $groups = explode(",",$_REQUEST["member_of_group"]);
-        $db_group_members = $PHORUM['DB']->get_group_members($groups);
-        $group_members = array();
-        foreach ($db_group_members as $user_id => $group_status) {
-            $group_members[] = $user_id;
+        foreach($groups as $glid => $glrid) {
+            if($glrid < 1) {
+                unset($groups[$glid]);
+            }
         }
-        $search_fields[] = 'user_id';
-        $search_values[] = $group_members;
-        $search_operators[] = '()';
+        if(count($groups)) {
+            $db_group_members = phorum_db_get_group_members($groups);
+            $group_members = array();
+            foreach ($db_group_members as $user_id => $group_status) {
+                $group_members[] = $user_id;
+            }
+            $search_fields[] = 'user_id';
+            $search_values[] = $group_members;
+            $search_operators[] = '()';
+        }
     }
 
     if (!empty($_REQUEST["forum_permissions"]) && !empty($_REQUEST["forum_permissions_forums"])) {
@@ -656,8 +657,8 @@ if (!isset($_GET["edit"]) && !isset($_GET["add"]) && !isset($addUser_error) && !
             $or_forum_permissions .= "(perm.permission>=$forum_permission AND
                       (perm.permission & $forum_permission>0))";
         }
-        $PHORUM['DB']->sanitize_mixed($_REQUEST["forum_permissions_forums"],"string");
-        $db_forum_permissions_users = $PHORUM['DB']->interact(
+        phorum_db_sanitize_mixed($_REQUEST["forum_permissions_forums"],"string");
+        $db_forum_permissions_users = phorum_db_interact(
             DB_RETURN_ROWS,
             "SELECT DISTINCT user.user_id AS user_id
              FROM   {$PHORUM['user_table']} AS user
@@ -677,7 +678,7 @@ if (!isset($_GET["edit"]) && !isset($_GET["add"]) && !isset($addUser_error) && !
     // Find a list of all matching user_ids.
     $total = phorum_api_user_search(
         $search_fields, $search_values, $search_operators,
-        TRUE, 'AND',null,0,0,true
+        TRUE, 'AND',NULL,0,0,true
     );
 
     $default_pagelength=30;
@@ -700,7 +701,6 @@ if (!isset($_GET["edit"]) && !isset($_GET["add"]) && !isset($addUser_error) && !
     $pagelength = isset($_GET["pagelength"]) ? (int)$_GET["pagelength"] : $default_pagelength;
 
     if (!isset($pagelengths[$pagelength])) $pagelength = $default_pagelength;
-
 
     $totalpages = ceil($total/$pagelength);
     if ($totalpages <= 0) $totalpages = 1;
@@ -781,12 +781,12 @@ if (!isset($_GET["edit"]) && !isset($_GET["add"]) && !isset($addUser_error) && !
 
         echo <<<EOT
         <form name="UsersForm" action="$frm_url" method="post">
-        <input type="hidden" name="phorum_admin_token" value="{$PHORUM['admin_token']}">
-        <input type="hidden" name="curpage" value="$page">
-        <input type="hidden" name="sort" value="$sort">
-        <input type="hidden" name="sort_dir" value="$sort_dir">
-        <input type="hidden" name="module" value="users">
-        <input type="hidden" name="action" value="deleteUsers">
+        <input type="hidden" name="phorum_admin_token" value="{$PHORUM['admin_token']}" />
+        <input type="hidden" name="curpage" value="$page" />
+        <input type="hidden" name="sort" value="$sort" />
+        <input type="hidden" name="sort_dir" value="$sort_dir" />
+        <input type="hidden" name="module" value="users" />
+        <input type="hidden" name="action" value="deleteUsers" />
         <table border="0" cellspacing="1" cellpadding="0"
                class="PhorumAdminTable" width="100%">
         <tr>
@@ -800,7 +800,7 @@ EOT;
             echo " value=\"$value\">$description</option>";
         }
         echo "</select>&nbsp;&nbsp;&nbsp;";
-        if ($page > 1) echo "<input type=\"submit\" name=\"prevpage\" value=\"&lt;&lt;\"/> ";
+        if ($page > 1) echo "<input type=\"submit\" name=\"prevpage\" value=\"&lt;&lt;\" /> ";
         echo "page <select name=\"page\" onchange=\"this.form.submit()\">";
         foreach ($pagelist as $value) {
             echo "<option";
@@ -808,7 +808,7 @@ EOT;
             echo " value=\"$value\">$value</option>";
         }
         echo "</select> of $totalpages ";
-        if ($page < $totalpages) echo "<input type=\"submit\" name=\"nextpage\" value=\"&gt;&gt;\"/>";
+        if ($page < $totalpages) echo "<input type=\"submit\" name=\"nextpage\" value=\"&gt;&gt;\" />";
         echo <<<EOT
             </span>Number of users: $total
             </td>
@@ -827,7 +827,6 @@ EOT;
             <td class="PhorumAdminTableHead">Delete</td>
         </tr>
 EOT;
-
         foreach($user_ids as $user_id)
         {
             $user = $users[$user_id];
@@ -846,11 +845,11 @@ EOT;
             echo "    <td class=\"".$ta_class."\">".htmlspecialchars($user['email'])."</td>\n";
             echo "    <td class=\"".$ta_class."\">{$status}</td>\n";
             echo "    <td class=\"".$ta_class."\" style=\"text-align:right\">{$posts}</td>\n";
-            echo "    <td class=\"".$ta_class."\" align=\"right\">".(intval($user['date_last_active']) ? phorum_api_format_date($PHORUM['short_date'], intval($user['date_last_active'])) : "&nbsp;")."</td>\n";
+            echo "    <td class=\"".$ta_class."\" align=\"right\">".(intval($user['date_last_active']) ? phorum_date($PHORUM['short_date'], intval($user['date_last_active'])) : "&nbsp;")."</td>\n";
             if (!empty($_REQUEST["registered"])) {
-                echo "    <td class=\"".$ta_class."\" align=\"right\">".(intval($user['date_added']) ? phorum_api_format_date($PHORUM['short_date'], intval($user['date_added'])) : "&nbsp;")."</td>\n";
+                echo "    <td class=\"".$ta_class."\" align=\"right\">".(intval($user['date_added']) ? phorum_date($PHORUM['short_date'], intval($user['date_added'])) : "&nbsp;")."</td>\n";
             }
-            echo "    <td class=\"".$ta_class."\"><input type=\"checkbox\" name=\"deleteIds[]\" value=\"{$user['user_id']}\"></td>\n";
+            echo "    <td class=\"".$ta_class."\"><input type=\"checkbox\" name=\"deleteIds[]\" value=\"{$user['user_id']}\" /></td>\n";
             echo "</tr>\n";
         }
 
@@ -858,11 +857,11 @@ EOT;
         <tr>
           <td colspan="$cols" align="right">
           <input type="button" value="Check All"
-           onClick="CheckboxControl(this.form, true);">
+           onclick="CheckboxControl(this.form, true);" />
           <input type="button" value="Clear All"
-           onClick="CheckboxControl(this.form, false);">
+           onclick="CheckboxControl(this.form, false);" />
           <input type="submit" name="delete" value="Delete Selected Users"
-           onClick="return confirm('Really delete the selected user(s)?')">
+           onclick="return confirm('Really delete the selected user(s)?')" />
           </td>
         </tr>
         </table>
@@ -882,9 +881,7 @@ if (isset($_REQUEST["user_id"]))
 {
     print "<a href=\"".htmlspecialchars($referrer)."\">Back to the user overview</a>&nbsp;|&nbsp;<a href=\"#forums\">Edit Forum Permissions</a>&nbsp;|&nbsp;<a href=\"#groups\">Edit Groups</a><br />";
 
-    $user = empty($user_data)
-          ? phorum_api_user_get($_REQUEST["user_id"], TRUE)
-          : $user_data;
+    $user = phorum_api_user_get($_REQUEST["user_id"], TRUE);
 
     if(count($user)){
 
@@ -913,18 +910,22 @@ if (isset($_REQUEST["user_id"]))
 
         $frm->addrow("Active", $frm->select_tag("active", array("No", "Yes"), $user["active"]));
 
+        $row=$frm->addrow("Force password change", $frm->select_tag("force_password_change", array("No", "Yes"), $user["force_password_change"]));
+
+        $frm->addhelp($row, "Force password change", "This option forces the user to change his password on his next page load or login.");
+
         $frm->addrow("Forum posts",$user["posts"]);
 
-        $frm->addrow("Registration Date", phorum_api_format_date($PHORUM['short_date_time'] ,$user['date_added']));
+        $frm->addrow("Registration Date", phorum_date($PHORUM['short_date_time'], $user['date_added']));
 
-        $row=$frm->addrow("Date last active", phorum_api_format_date($PHORUM['short_date_time'] ,$user['date_last_active']));
-
-        $frm->addrow("Administrator", $frm->select_tag("admin", array("No", "Yes"), $user["admin"]));
+        $row=$frm->addrow("Date last active", phorum_date($PHORUM['short_date_time'], $user['date_last_active']));
 
         $frm->addhelp($row, "Date last active", "This shows the date, when the user was last seen in the forum. Check your setting on \"Track user usage\" in the \"General Settings\". As long as this setting is not enabled, the activity will not be tracked.");
 
+        $frm->addrow("Administrator", $frm->select_tag("admin", array("No", "Yes"), $user["admin"]));
+
         $cf_header_shown=0;
-        foreach($PHORUM["CUSTOM_FIELDS"][PHORUM_CUSTOM_FIELD_USER] as $key => $item){
+        foreach($PHORUM["PROFILE_FIELDS"] as $key => $item){
             if ($key === 'num_rows' || !empty($item['deleted'])) continue;
             if(!empty($item['show_in_admin'])) {
                 if(!$cf_header_shown) {
@@ -939,132 +940,117 @@ if (isset($_REQUEST["user_id"]))
             }
         }
 
-        phorum_api_hook("admin_users_form", $frm, $user);
+        phorum_hook("admin_users_form", $frm, $user);
 
         $frm->show();
 
-        if(!$large_userbase) {
+        echo "<br /><hr class=\"PhorumAdminHR\" /><br /><a name=\"forums\"></a>";
 
-            echo "<br /><hr class=\"PhorumAdminHR\" /><br /><a name=\"forums\"></a>";
+        $frm = new PhorumInputForm ("", "post", "Update");
 
-            $frm = new PhorumInputForm ("", "post", "Update");
+        $frm->hidden("user_id", $_REQUEST["user_id"]);
 
-            $frm->hidden("user_id", $_REQUEST["user_id"]);
+        $frm->hidden("module", "users");
 
-            $frm->hidden("module", "users");
+        $frm->hidden("section", "forums");
 
-            $frm->hidden("section", "forums");
+        $frm->hidden("referrer", $referrer);
 
-            $frm->hidden("referrer", $referrer);
+        $row=$frm->addbreak("Edit Forum Permissions");
 
-            $row=$frm->addbreak("Edit Forum Permissions");
+        $frm->addhelp($row, "Forum Permissions", "These are permissions set exclusively for this user.  You need to grant all permisssions you want the user to have for a forum here.  No permissions from groups or a forum's properties will be used once the user has specific permissions for a forum.");
 
-            $frm->addhelp($row, "Forum Permissions", "These are permissions set exclusively for this user.  You need to grant all permisssions you want the user to have for a forum here.  No permissions from groups or a forum's properties will be used once the user has specific permissions for a forum.");
+        $forums=phorum_db_get_forums();
 
-            /**
-             * @todo This would need PHORUM_FLAG_FORUMS too, but care has to
-             *       be taken about the code below too then. I'll postpone
-             *       adding this, until the phorum_get_forum_info() call is
-             *       API-fied as well.
-             */
-            $forums = phorum_api_forums_get(
-                NULL, NULL, NULL, NULL,
-                PHORUM_FLAG_INCLUDE_INACTIVE
-            );
+        $forumpaths = phorum_get_forum_info(1);
 
-            $forumpaths = phorum_get_forum_info(1);
+        $perm_frm = $frm->checkbox("new_forum_permissions[".PHORUM_USER_ALLOW_READ."]", 1, "Read")."&nbsp;&nbsp;".
+                    $frm->checkbox("new_forum_permissions[".PHORUM_USER_ALLOW_REPLY."]", 1, "Reply")."&nbsp;&nbsp;".
+                    $frm->checkbox("new_forum_permissions[".PHORUM_USER_ALLOW_NEW_TOPIC."]", 1, "Create&nbsp;New&nbsp;Topics")."&nbsp;&nbsp;".
+                    $frm->checkbox("new_forum_permissions[".PHORUM_USER_ALLOW_EDIT."]", 1, "Edit&nbsp;Their&nbsp;Posts")."<br />".
+                    $frm->checkbox("new_forum_permissions[".PHORUM_USER_ALLOW_ATTACH."]", 1, "Attach&nbsp;Files")."<br />".
+                    $frm->checkbox("new_forum_permissions[".PHORUM_USER_ALLOW_MODERATE_MESSAGES."]", 1, "Moderate Messages")."&nbsp;&nbsp;".
+                    $frm->checkbox("new_forum_permissions[".PHORUM_USER_ALLOW_MODERATE_USERS."]", 1, "Moderate Users")."&nbsp;&nbsp;";
 
-            $perm_frm = $frm->checkbox("new_forum_permissions[".PHORUM_USER_ALLOW_READ."]", 1, "Read")."&nbsp;&nbsp;".
-                        $frm->checkbox("new_forum_permissions[".PHORUM_USER_ALLOW_REPLY."]", 1, "Reply")."&nbsp;&nbsp;".
-                        $frm->checkbox("new_forum_permissions[".PHORUM_USER_ALLOW_NEW_TOPIC."]", 1, "Create&nbsp;New&nbsp;Topics")."&nbsp;&nbsp;".
-                        $frm->checkbox("new_forum_permissions[".PHORUM_USER_ALLOW_EDIT."]", 1, "Edit&nbsp;Their&nbsp;Posts")."<br />".
-                        $frm->checkbox("new_forum_permissions[".PHORUM_USER_ALLOW_ATTACH."]", 1, "Attach&nbsp;Files")."<br />".
-                        $frm->checkbox("new_forum_permissions[".PHORUM_USER_ALLOW_MODERATE_MESSAGES."]", 1, "Moderate Messages")."&nbsp;&nbsp;".
-                        $frm->checkbox("new_forum_permissions[".PHORUM_USER_ALLOW_MODERATE_USERS."]", 1, "Moderate Users")."&nbsp;&nbsp;";
+        $arr[]="Add A Forum...";
 
-            $arr[]="Add A Forum...";
-
-            foreach($forumpaths as $forum_id=>$forumname){
-                if(!isset($user["forum_permissions"][$forum_id]) && $forums[$forum_id]['folder_flag'] == 0)
-                    $arr[$forum_id]=$forumname;
-            }
-
-            if(count($arr)>1)
-                $frm->addrow($frm->select_tag("new_forum", $arr), $perm_frm);
-
-
-            if(is_array($user["forum_permissions"])){
-                foreach($user["forum_permissions"] as $forum_id=>$perms){
-                    $perm_frm = $frm->checkbox("forum_permissions[$forum_id][".PHORUM_USER_ALLOW_READ."]", 1, "Read", ($perms & PHORUM_USER_ALLOW_READ))."&nbsp;&nbsp;".
-                                $frm->checkbox("forum_permissions[$forum_id][".PHORUM_USER_ALLOW_REPLY."]", 1, "Reply", ($perms & PHORUM_USER_ALLOW_REPLY))."&nbsp;&nbsp;".
-                                $frm->checkbox("forum_permissions[$forum_id][".PHORUM_USER_ALLOW_NEW_TOPIC."]", 1, "Create&nbsp;New&nbsp;Topics", ($perms & PHORUM_USER_ALLOW_NEW_TOPIC))."&nbsp;&nbsp;".
-                                $frm->checkbox("forum_permissions[$forum_id][".PHORUM_USER_ALLOW_EDIT."]", 1, "Edit&nbsp;Their&nbsp;Posts", ($perms & PHORUM_USER_ALLOW_EDIT))."<br />".
-                                $frm->checkbox("forum_permissions[$forum_id][".PHORUM_USER_ALLOW_ATTACH."]", 1, "Attach&nbsp;Files", ($perms & PHORUM_USER_ALLOW_ATTACH))."<br />".
-                                $frm->checkbox("forum_permissions[$forum_id][".PHORUM_USER_ALLOW_MODERATE_MESSAGES."]", 1, "Moderate Messages", ($perms & PHORUM_USER_ALLOW_MODERATE_MESSAGES))."&nbsp;&nbsp;".
-                                $frm->checkbox("forum_permissions[$forum_id][".PHORUM_USER_ALLOW_MODERATE_USERS."]", 1, "Moderate Users", ($perms & PHORUM_USER_ALLOW_MODERATE_USERS))."&nbsp;&nbsp;".
-
-                    $frm->hidden("forums[$forum_id]", $forum_id);
-
-                    $row=$frm->addrow($forumpaths[$forum_id]."<br />".$frm->checkbox("delforum[$forum_id]", 1, "Delete"), $perm_frm);
-
-                }
-            }
-
-            $frm->show();
-
-
-
-            echo "<br /><hr class=\"PhorumAdminHR\" /><br /><a name=\"groups\"></a>";
-
-            $frm = new PhorumInputForm ("", "post", "Update");
-
-            $frm->hidden("user_id", $_REQUEST["user_id"]);
-
-            $frm->hidden("module", "users");
-
-            $frm->hidden("referrer", $referrer);
-
-            $frm->hidden("section", "groups");
-
-            $extra_opts = "";
-            // if its an admin, let the user know that the admin will be able to act as a moderator no matter what
-            if ($user["admin"]){
-                $row=$frm->addbreak("Edit Groups (Admins can act as a moderator of every group, regardless of these values)");
-            }
-            else{
-                $row=$frm->addbreak("Edit Groups");
-            }
-
-            $groups= $PHORUM['DB']->get_groups(0, TRUE);
-            $usergroups = phorum_api_user_check_group_access(PHORUM_USER_GROUP_SUSPENDED, PHORUM_ACCESS_LIST, $_REQUEST["user_id"]);
-
-            $arr=array("Add A Group...");
-            foreach($groups as $group_id=>$group){
-                if(!isset($usergroups[$group_id]))
-                    $arr[$group_id]=$group["name"];
-            }
-
-            if(count($arr)>1)
-                $frm->addrow("Add A Group", $frm->select_tag("new_group", $arr));
-
-            if(is_array($usergroups)){
-                $group_options = array(
-                        "remove" => "< Remove User From Group >",
-                        PHORUM_USER_GROUP_SUSPENDED => "Suspended",
-                        PHORUM_USER_GROUP_UNAPPROVED => "Unapproved",
-                        PHORUM_USER_GROUP_APPROVED => "Approved",
-                        PHORUM_USER_GROUP_MODERATOR => "Group Moderator");
-                foreach($usergroups as $group_id => $group){
-                    $group_perm = $group['user_status'];
-                    $group_info = $PHORUM['DB']->get_groups($group_id);
-                    $frm->hidden("groups[$group_id]", "$group_id");
-                    $frm->addrow($group_info[$group_id]["name"], $frm->select_tag("group_perm[$group_id]", $group_options, $group_perm, $extra_opts));
-                }
-            }
-
-            $frm->show();
-
+        foreach($forumpaths as $forum_id=>$forumname){
+            if(!isset($user["forum_permissions"][$forum_id]) && $forums[$forum_id]['folder_flag'] == 0)
+                $arr[$forum_id]=$forumname;
         }
+
+        if(count($arr)>1)
+            $frm->addrow($frm->select_tag("new_forum", $arr), $perm_frm);
+
+
+        if(is_array($user["forum_permissions"])){
+            foreach($user["forum_permissions"] as $forum_id=>$perms){
+                $perm_frm = $frm->checkbox("forum_permissions[$forum_id][".PHORUM_USER_ALLOW_READ."]", 1, "Read", ($perms & PHORUM_USER_ALLOW_READ))."&nbsp;&nbsp;".
+                            $frm->checkbox("forum_permissions[$forum_id][".PHORUM_USER_ALLOW_REPLY."]", 1, "Reply", ($perms & PHORUM_USER_ALLOW_REPLY))."&nbsp;&nbsp;".
+                            $frm->checkbox("forum_permissions[$forum_id][".PHORUM_USER_ALLOW_NEW_TOPIC."]", 1, "Create&nbsp;New&nbsp;Topics", ($perms & PHORUM_USER_ALLOW_NEW_TOPIC))."&nbsp;&nbsp;".
+                            $frm->checkbox("forum_permissions[$forum_id][".PHORUM_USER_ALLOW_EDIT."]", 1, "Edit&nbsp;Their&nbsp;Posts", ($perms & PHORUM_USER_ALLOW_EDIT))."<br />".
+                            $frm->checkbox("forum_permissions[$forum_id][".PHORUM_USER_ALLOW_ATTACH."]", 1, "Attach&nbsp;Files", ($perms & PHORUM_USER_ALLOW_ATTACH))."<br />".
+                            $frm->checkbox("forum_permissions[$forum_id][".PHORUM_USER_ALLOW_MODERATE_MESSAGES."]", 1, "Moderate Messages", ($perms & PHORUM_USER_ALLOW_MODERATE_MESSAGES))."&nbsp;&nbsp;".
+                            $frm->checkbox("forum_permissions[$forum_id][".PHORUM_USER_ALLOW_MODERATE_USERS."]", 1, "Moderate Users", ($perms & PHORUM_USER_ALLOW_MODERATE_USERS))."&nbsp;&nbsp;".
+
+                $frm->hidden("forums[$forum_id]", $forum_id);
+
+                $row=$frm->addrow($forumpaths[$forum_id]."<br />".$frm->checkbox("delforum[$forum_id]", 1, "Delete"), $perm_frm);
+
+            }
+        }
+
+        $frm->show();
+
+        echo "<br /><hr class=\"PhorumAdminHR\" /><br /><a name=\"groups\"></a>";
+
+        $frm = new PhorumInputForm ("", "post", "Update");
+
+        $frm->hidden("user_id", $_REQUEST["user_id"]);
+
+        $frm->hidden("module", "users");
+
+        $frm->hidden("referrer", $referrer);
+
+        $frm->hidden("section", "groups");
+
+        $extra_opts = "";
+        // if its an admin, let the user know that the admin will be able to act as a moderator no matter what
+        if ($user["admin"]){
+            $row=$frm->addbreak("Edit Groups (Admins can act as a moderator of every group, regardless of these values)");
+        }
+        else{
+            $row=$frm->addbreak("Edit Groups");
+        }
+
+        $groups= phorum_db_get_groups(0, TRUE);
+        $usergroups = phorum_api_user_check_group_access(PHORUM_USER_GROUP_SUSPENDED, PHORUM_ACCESS_LIST, $_REQUEST["user_id"]);
+
+        $arr=array("Add A Group...");
+        foreach($groups as $group_id=>$group){
+            if(!isset($usergroups[$group_id]))
+                $arr[$group_id]=$group["name"];
+        }
+
+        if(count($arr)>1)
+            $frm->addrow("Add A Group", $frm->select_tag("new_group", $arr));
+
+        if(is_array($usergroups)){
+            $group_options = array(
+                    "remove" => "< Remove User From Group >",
+                    PHORUM_USER_GROUP_SUSPENDED => "Suspended",
+                    PHORUM_USER_GROUP_UNAPPROVED => "Unapproved",
+                    PHORUM_USER_GROUP_APPROVED => "Approved",
+                    PHORUM_USER_GROUP_MODERATOR => "Group Moderator");
+            foreach($usergroups as $group_id => $group){
+                $group_perm = $group['user_status'];
+                $group_info = phorum_db_get_groups($group_id);
+                $frm->hidden("groups[$group_id]", "$group_id");
+                $frm->addrow($group_info[$group_id]["name"], $frm->select_tag("group_perm[$group_id]", $group_options, $group_perm, $extra_opts));
+            }
+        }
+
+        $frm->show();
 
     } else {
 
@@ -1080,7 +1066,7 @@ if (isset($_REQUEST["user_id"]))
     $email = isset($user_data["email"]) ? $user_data["email"] : "";
     $admin = isset($user_data["admin"]) ? $user_data["admin"] : "";
 
-    print "<a href=\"".htmlspecialchars($referrer)."\">Back to the user overview</a><br/>";
+    print "<a href=\"".htmlspecialchars($referrer)."\">Back to the user overview</a><br />";
 
     $frm = new PhorumInputForm ("", "post", "Add User");
 
@@ -1101,6 +1087,19 @@ if (isset($_REQUEST["user_id"]))
 
     $frm->addrow("Administrator", $frm->select_tag("admin", array("No", "Yes"), $admin));
 
+    $frm->show();
+
+//display force password change form
+} elseif (isset($_REQUEST['forcePasswordChange'])) {
+    print '<a href="'.htmlspecialchars($referrer).'">Back to the user overview</a><br />';
+    $frm = new PhorumInputForm ('', 'post', 'Force Password Change');
+
+    $frm->hidden('module', 'users');
+    $frm->hidden('referrer', $referrer);
+    $frm->hidden('forcePasswordChange', '1');
+
+    $frm->addbreak('Force Password Change');
+    $frm->addmessage('ATTENTION!<br /><br />This option forces ALL users (except you as executing administrator) to change their password on their next page load or login.<br /><br />The process is irreversible!');
     $frm->show();
 }
 ?>

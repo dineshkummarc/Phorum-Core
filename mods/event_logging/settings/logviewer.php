@@ -2,9 +2,7 @@
 
 if (!defined("PHORUM_ADMIN")) return;
 
-if (empty($PHORUM["mod_event_logging_installed"])) {
-  return;
-}
+include_once("./include/format_functions.php");
 
 $strings = $PHORUM["DATA"]["MOD_EVENT_LOGGING"];
 
@@ -19,7 +17,7 @@ $filter_mode = defined("LOGVIEWER_FILTER_MODE") ||
                isset($_POST["filter_mode"]);
 
 // Some defaults for the page.
-$default_pagelength = 20;
+$default_pagelength = 50;
 $default_loglevel   = EVENTLOG_LVL_DEBUG;
 
 // The available page lengths.
@@ -153,7 +151,7 @@ $logs = event_logging_getlogs($page, $pagelength, $filter);
 // Display header form for paging and filtering.
 // ----------------------------------------------------------------------
 
-require_once('./include/admin/PhorumInputForm.php');
+include_once "./include/admin/PhorumInputForm.php";
 $frm = new PhorumInputForm ("", "post", $filter_mode ? "Apply filter" : "Refresh page");
 $frm->hidden("module", "modsettings");
 $frm->hidden("mod", "event_logging");
@@ -164,11 +162,11 @@ $frm->addrow(
     "<span style=\"float:right;margin-right:10px\">" .
          $frm->select_tag("pagelength", $pagelengths, $pagelength,
                           'onchange="this.form.submit()"') .
-        "&nbsp;&nbsp;&nbsp
-         <input type=\"submit\" name=\"prevpage\" value=\"&lt;&lt;\"/>
+        "&nbsp;&nbsp;&nbsp;
+         <input type=\"submit\" name=\"prevpage\" value=\"&lt;&lt;\" />
          page " . $frm->select_tag("page", $pagelist, $page,
                   'onchange="this.form.submit()"') . " of $pages
-         <input type=\"submit\" name=\"nextpage\" value=\"&gt;&gt;\"/>
+         <input type=\"submit\" name=\"nextpage\" value=\"&gt;&gt;\" />
      </span>Number of entries: $logcount"
 );
 
@@ -178,7 +176,7 @@ if ($filter_mode)
 
     $loglevel_checkboxes = '';
     foreach ($strings["LOGLEVELS"] as $l => $s) {
-        $loglevel_checkboxes .= '<span style="white-space: nowrap">' . $frm->checkbox("show_loglevel[$l]", "1", "", isset($show_loglevel[$l])?1:0, "id=\"llcb_$l\"") . ' <label for="llcb_'.$l.'"><img align="absmiddle" src="'.$PHORUM["http_path"].'/mods/event_logging/images/loglevels/'.$l.'.png"/> ' . $s . '</label></span> ';
+        $loglevel_checkboxes .= '<span style="white-space: nowrap">' . $frm->checkbox("show_loglevel[$l]", "1", "", isset($show_loglevel[$l])?1:0, "id=\"llcb_$l\"") . ' <label for="llcb_'.$l.'"><img align="absmiddle" src="'.$PHORUM["http_path"].'/mods/event_logging/images/loglevels/'.$l.'.png" /> ' . $s . '</label></span> ';
     }
     $row = $frm->addrow("Log levels to display", $loglevel_checkboxes);
     $frm->addhelp($row, "Log levels to display", "By using these checkboxes, you can limit the log levels that are displayed. If you do not check any of them, then no filtering will be applied and all log levels will be displayed.");
@@ -195,16 +193,16 @@ if ($filter_mode)
     $row = $frm->addrow("Source to display", $frm->select_tag("source", $sources, isset($_POST["source"]) ? $_POST["source"] : ""));
 
     $row = $frm->addrow("Filter by user", "User ID " . $frm->text_box("user_id", isset($_POST["user_id"]) ? $_POST["user_id"] : "", 10) . " Username " .  $frm->text_box("username", isset($_POST["username"]) ? $_POST["username"] : "", 20));
-    $frm->addhelp($row, "Filter by user", "Using these fields, you can specify for what user you want to display the event logs.<br/><br/>The User ID must be the exact numeric id for the user.<br/><br/>In the username field, you can use the \"*\" wildcard (e.g. searching for \"john*\" would find both the users \"johndoe\" and \"johnny\").");
+    $frm->addhelp($row, "Filter by user", "Using these fields, you can specify for what user you want to display the event logs.<br /><br />The User ID must be the exact numeric id for the user.<br /><br />In the username field, you can use the \"*\" wildcard (e.g. searching for \"john*\" would find both the users \"johndoe\" and \"johnny\").");
 
     $row = $frm->addrow("Filter by IP address", $frm->text_box("ip", isset($_POST["ip"]) ? $_POST["ip"] : "", 20));
-    $frm->addhelp($row, "Filter by IP address", "Using this field, you can specify for what IP address you want to display the event logs.<br/><br/>In the field, you can use the \"*\" wildcard (e.g. searching for \"172.16.12.*\" will find both the IP addresses \"172.16.12.1\" and \"172.16.12.211\").");
+    $frm->addhelp($row, "Filter by IP address", "Using this field, you can specify for what IP address you want to display the event logs.<br /><br />In the field, you can use the \"*\" wildcard (e.g. searching for \"172.16.12.*\" will find both the IP addresses \"172.16.12.1\" and \"172.16.12.211\").");
 
     $row = $frm->addrow("Filter by message", $frm->text_box("message", isset($_POST["message"]) ? htmlspecialchars($_POST["message"]) : "", 40));
-    $frm->addhelp($row, "Filter by message", "Filter all events where the message matches the specified text.<br/><br/>In the field, you can use the \"*\" wildcard (e.g. searching for \"fail*\" would find both entries with \"failure\" and \"failacity\").");
+    $frm->addhelp($row, "Filter by message", "Filter all events where the message matches the specified text.<br /><br />In the field, you can use the \"*\" wildcard (e.g. searching for \"fail*\" would find both entries with \"failure\" and \"failacity\").");
 
     $row = $frm->addrow("Filter by details", $frm->text_box("details", isset($_POST["details"]) ? htmlspecialchars($_POST["details"]) : "", 40));
-    $frm->addhelp($row, "Filter by details", "Filter all events where the details match the specified text .<br/><br/>In the field, you can use the \"*\" wildcard (e.g. searching for \"fail*\" would find both entries with \"failure\" and \"failacity\").");
+    $frm->addhelp($row, "Filter by details", "Filter all events where the details match the specified text .<br /><br />In the field, you can use the \"*\" wildcard (e.g. searching for \"fail*\" would find both entries with \"failure\" and \"failacity\").");
 
 }
 
@@ -214,6 +212,7 @@ $frm->show();
 // which can be used for clearing logs from the database.
 ?>
 <script type="text/javascript">
+// <![CDATA[
 var buttons = document.getElementsByTagName('input');
 for (var i = 0; i < buttons.length; i++) {
     if (buttons[i].type == 'submit' && (
@@ -273,6 +272,7 @@ for (var i = 0; i < buttons.length; i++) {
         break;
     }
 }
+// ]]>
 </script>
 <?php
 
@@ -310,7 +310,6 @@ function toggle_detail_visibility(log_id)
 
     return false;
 }
-
 //]]>
 </script>
 
@@ -322,6 +321,7 @@ function toggle_detail_visibility(log_id)
     <th align="left" style="white-space:nowrap">Time</th>
     <th align="left" style="white-space:nowrap">Source</th>
     <th align="left" style="white-space:nowrap">Category</th>
+    <th align="left" style="white-space:nowrap">IP address</th>
     <th align="left" style="width:100%">Message</th>
     <th>&nbsp;</th>
   </tr>
@@ -352,7 +352,7 @@ foreach ($logs as $loginfo)
     // the URL that points to that message.
     $message_url = NULL;
     if ($loginfo["message_id"] !== NULL && $loginfo["message_id"] > 0) {
-        $message_url = phorum_api_url(
+        $message_url = phorum_get_url(
             PHORUM_FOREIGN_READ_URL,
             $loginfo["forum_id"],
             $loginfo["thread_id"],
@@ -369,19 +369,22 @@ foreach ($logs as $loginfo)
     print '
       <tr>
         <td valign="middle" style="white-space:nowrap">
-          <img alt="'.$title.'" title="'.$title.'" src="'.$icon.'"/>
+          <img alt="'.$title.'" title="'.$title.'" src="'.$icon.'" />
         </td>
-        <td valign="left" style="white-space:nowrap; font-size: 10px">'.
-          phorum_api_format_date($PHORUM['short_date'], $loginfo["datestamp"]).
+        <td style="white-space:nowrap; font-size: 10px">'.
+          phorum_date($PHORUM['short_date'], $loginfo["datestamp"]).
        '</td>
-        <td valign="left" style="white-space:nowrap; font-size: 10px">'.
-          phorum_api_format_date($PHORUM['short_time'], $loginfo["datestamp"]).
+        <td style="white-space:nowrap; font-size: 10px">'.
+          phorum_date($PHORUM['short_time'], $loginfo["datestamp"]).
        '</td>
         <td valign="middle" style="white-space:nowrap; font-size: 10px">
-          <a title="Extend filter using this source" href="'.htmlspecialchars($filter_base.'&source='.urlencode($loginfo["source"])).'">'.htmlspecialchars($loginfo["source"]).'</a>
+          <a title="Extend filter using this source." href="'.htmlspecialchars($filter_base.'&source='.urlencode($loginfo["source"])).'">'.htmlspecialchars($loginfo["source"]).'</a>
         </td>
         <td valign="middle" style="font-size: 10px">
-          <a title="Extend filter using this category" href="'.htmlspecialchars($filter_base.'&show_category['.urlencode($loginfo["category"]).']=1').'">'.$cat.'</a>
+          <a title="Extend filter using this category." href="'.htmlspecialchars($filter_base.'&show_category['.urlencode($loginfo["category"]).']=1').'">'.$cat.'</a>
+        </td>
+        <td valign="middle" style="font-size: 10px">
+          <a title="Extend filter using this IP address." href="'.htmlspecialchars($filter_base.'&ip='.urlencode($loginfo["ip"])).'">'.$loginfo["ip"].'</a>
         </td>
         <td valign="middle" style="font-size: 12px">'.
           htmlspecialchars($message).
@@ -392,35 +395,35 @@ foreach ($logs as $loginfo)
       </tr>
       <tr>
         <td style="border-bottom: 1px solid #888"></td>
-        <td colspan="6" style="border-bottom: 1px solid #888">
+        <td colspan="7" style="border-bottom: 1px solid #888">
           <div style="display:none;overflow:auto;border:1px solid #aaa; padding:10px; margin-bottom: 10px" id="detail_'.$loginfo["log_id"].'">
 
-            <b>User info:</b><br/><br/>' .
+            <b>User info:</b><br /><br />' .
 
             ($loginfo["user_id"]
-             ? "User ID = <a title=\"Extend filter using this User ID\" href=\"".htmlspecialchars("$filter_base&user_id=".urlencode($loginfo["user_id"]))."\">{$loginfo["user_id"]}</a>" .
+             ? "User ID = <a title=\"Extend filter using this User ID.\" href=\"".htmlspecialchars("$filter_base&user_id=".urlencode($loginfo["user_id"]))."\">{$loginfo["user_id"]}</a>" .
                 ($loginfo["username"] !== NULL
                  ? ', username = ' . htmlspecialchars($loginfo["username"])
                  : '') .
-                '&nbsp;[&nbsp;<a target="_new" href="'.phorum_api_url(PHORUM_PROFILE_URL, $loginfo["user_id"]).'">view user\'s profile</a>&nbsp]'
-             : "Anonymous user") . '<br/>' .
-            'User IP address = <a title="Extend filter using this IP address" href="'.htmlspecialchars($filter_base.'&ip='.urlencode($loginfo["ip"])).'">'. $loginfo["ip"] . '</a>' .
+                '&nbsp;[&nbsp;<a target="_blank" href="'.phorum_get_url(PHORUM_PROFILE_URL, $loginfo["user_id"]).'">view user\'s profile</a>&nbsp;]'
+             : "Anonymous user") . '<br />' .
+            'User IP address = <a title="Extend filter using this IP address." href="'.htmlspecialchars($filter_base.'&ip='.urlencode($loginfo["ip"])).'">'. $loginfo["ip"] . '</a>' .
             ($loginfo["hostname"] !== NULL
              ? ', hostname = ' . htmlspecialchars($loginfo["hostname"])
-             : '') . '<br/>' .
+             : '') . '<br />' .
 
             ($message_url !== NULL
-             ? '<br/><b>Related message:</b><br/>
-                Forum = '.$loginfo["forum"].'<br/>
-                Message ID = '.$loginfo["message_id"].'<br/>
-                [&nbsp;<a target="_new" href="'.htmlspecialchars($message_url).'">view message</a>&nbsp;]<br/>'
+             ? '<br /><b>Related message:</b><br />
+                Forum = '.$loginfo["forum"].'<br />
+                Message ID = '.$loginfo["message_id"].'<br />
+                [&nbsp;<a target="_blank" href="'.htmlspecialchars($message_url).'">view message</a>&nbsp;]<br />'
              : '') .
 
             ($details !== NULL
-             ? '<br/><b>Additional details:</b><br/><br/>' .
-               nl2br(htmlspecialchars($details)) . '<br/>'
+             ? '<br /><b>Additional details:</b><br /><br />' .
+               nl2br(htmlspecialchars($details)) . '<br />'
              : '') .
-            '<br/>
+            '<br />
           </div>
         </td>
       </tr>';

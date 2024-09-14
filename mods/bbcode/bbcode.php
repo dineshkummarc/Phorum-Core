@@ -1,27 +1,27 @@
 <?php
-////////////////////////////////////////////////////////////////////////////////
-//                                                                            //
-//   Copyright (C) 2016  Phorum Development Team                              //
-//   http://www.phorum.org                                                    //
-//                                                                            //
-//   This program is free software. You can redistribute it and/or modify     //
-//   it under the terms of either the current Phorum License (viewable at     //
-//   phorum.org) or the Phorum License that was distributed with this file    //
-//                                                                            //
-//   This program is distributed in the hope that it will be useful,          //
-//   but WITHOUT ANY WARRANTY, without even the implied warranty of           //
-//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                     //
-//                                                                            //
-//   You should have received a copy of the Phorum License                    //
-//   along with this program.                                                 //
-//                                                                            //
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// Copyright (C) 2016  Phorum Development Team                               //
+// http://www.phorum.org                                                     //
+//                                                                           //
+// This program is free software. You can redistribute it and/or modify      //
+// it under the terms of either the current Phorum License (viewable at      //
+// phorum.org) or the Phorum License that was distributed with this file     //
+//                                                                           //
+// This program is distributed in the hope that it will be useful,           //
+// but WITHOUT ANY WARRANTY, without even the implied warranty of            //
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                      //
+//                                                                           //
+// You should have received a copy of the Phorum License                     //
+// along with this program.                                                  //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
 
 if (!defined("PHORUM")) return;
 
-require_once PHORUM_PATH.'/mods/bbcode/api.php';
-require_once PHORUM_PATH.'/mods/bbcode/builtin_tags.php';
-require_once PHORUM_PATH.'/mods/bbcode/defaults.php';
+require_once('./mods/bbcode/api.php');
+require_once('./mods/bbcode/builtin_tags.php');
+require_once('./mods/bbcode/defaults.php');
 
 // Initialize the bbcode parser if that has not been done before.
 // This will mainly be used at install time to initialize the data.
@@ -113,6 +113,7 @@ function phorum_mod_bbcode_format($data)
 // Quote hook, for overriding the default Phorum message quoting method.
 function phorum_mod_bbcode_quote ($data)
 {
+    global $PHORUM;
     // Some other hook already formatted the quote.
     if (!is_array($data)) return $data;
 
@@ -130,7 +131,7 @@ function phorum_mod_bbcode_quote ($data)
             $author = '"' . $author . '"';
         }
 
-        return "[quote=$author]\n$data[1][/quote]";
+        return "[quote=$author]\n".phorum_strip_body($data[1], true, $PHORUM["strip_quote_posting_form"]).'[/quote]';
     }
     else  {
         return $data;
@@ -146,7 +147,7 @@ function phorum_mod_bbcode_tpl_editor_disable_bbcode()
     if (empty($PHORUM["mod_bbcode"]["allow_disable_per_post"]))
         return;
 
-    include phorum_api_template('bbcode::disable_option');
+    include(phorum_get_template('bbcode::disable_option'));
 }
 
 // Process "Disable BBcode" option from the message form.
@@ -223,7 +224,7 @@ function phorum_mod_bbcode_editor_tool_plugin()
 
         editor_tools_register_help(
             $description,
-            phorum_api_url(PHORUM_ADDON_URL, 'module=bbcode', 'action=help')
+            phorum_get_url(PHORUM_ADDON_URL, 'module=bbcode', 'action=help')
         );
     }
 

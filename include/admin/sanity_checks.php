@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,7 +15,6 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
 if(!defined("PHORUM")) return;
@@ -40,7 +40,7 @@ if (!$dh) trigger_error("Could not open sanity checks directory",E_USER_ERROR);
 while ($file = readdir($dh)) {
     if (preg_match('/^(.+)\.php$/', $file, $m)) {
         unset($phorum_check);
-        include "$sanity_checks_dir/$file";
+        include("$sanity_checks_dir/$file");
         $func = "phorum_check_$m[1]";
         if (!isset($phorum_check)||!function_exists($func)) trigger_error(
             "$sanity_checks_dir/$file is no valid check file! " .
@@ -58,7 +58,7 @@ while ($file = readdir($dh)) {
 }
 
 // Give module writers a possiblity to write custom sanity checks.
-$sanity_checks = phorum_api_hook("sanity_checks", $sanity_checks);
+$sanity_checks = phorum_hook("sanity_checks", $sanity_checks);
 
 // ========================================================================
 // Run the sanity checks.
@@ -94,7 +94,7 @@ foreach ($sanity_checks as $check)
     //
     // [3] A solution for the problem or NULL.
     //
-    $is_install = ($module == "install" || $module == "upgrade");
+    $is_install = $module == "install";
     list($status, $error, $solution) = call_user_func($check["function"], $is_install);
 
     $PHORUM["SANITY_CHECKS"]["CHECKS"][] = array(
@@ -110,14 +110,13 @@ foreach ($sanity_checks as $check)
 
 // If the sanity checks are called from the installation,
 // the we're done.
-if ($module == "install" || $module == "upgrade") return;
+if ($module == "install") return;
 
 // ========================================================================
 // Build the sanity checking admin page.
 // ========================================================================
 
-require_once './include/admin/PhorumInputForm.php';
-
+include_once "./include/admin/PhorumInputForm.php";
 $frm = new PhorumInputForm ("", "post", "Restart sanity checks");
 
 $frm->hidden("module", "sanity_checks");
@@ -146,9 +145,9 @@ foreach ($PHORUM["SANITY_CHECKS"]["CHECKS"] as $check)
         if (! empty($check["error"])) {
             if (! empty($check["solution"]))
                 $check["error"] .=
-                          "<br/><br/>" .
+                          "<br /><br />" .
                           "<strong>Possible solution:</strong>" .
-                          "<br/><br/>" .
+                          "<br /><br />" .
                           $check["solution"];
             $frm->addhelp($row,"Sanity check failed",$check["error"]);
         }

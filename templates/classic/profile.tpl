@@ -37,8 +37,8 @@
           <td nowrap="nowrap">{LANG->DateActive}:&nbsp;</td>
           <td>{PROFILE->date_last_active}</td>
         </tr>
-        {HOOK "tpl_profile" PROFILE}
       {/IF}
+      {HOOK "tpl_profile" PROFILE}
     </table>
   </div>
   <div class="PhorumNavBlock PhorumNarrowBlock" style="text-align: left;">
@@ -47,5 +47,4 @@
     {/IF}
     <a class="PhorumNavLink" href="{PROFILE->URL->SEARCH}">{LANG->ShowPosts}</a>
   </div>
-
 </div>

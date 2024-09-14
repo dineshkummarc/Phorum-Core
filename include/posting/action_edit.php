@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,15 +15,17 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM")) return;
+if(!defined("PHORUM")) return;
 
-require_once PHORUM_PATH.'/include/api/diff.php';
-require_once PHORUM_PATH.'/include/api/file.php';
-require_once PHORUM_PATH.'/include/api/thread.php';
+// For phorum_update_thread_info().
+include_once("./include/thread_info.php");
 
+include_once("./include/diff_patch.php");
+
+require_once("./include/api/base.php");
+require_once("./include/api/file_storage.php");
 
 // Create a message which can be used by the database library.
 $dbmessage = array(
@@ -57,7 +60,7 @@ if ( $message["parent_id"]==0 ) {
     // has the sorting order been changed?
     if($dbmessage['sort'] !== $origmessage['sort']) {
         // too much to calculate here to avoid the full refresh
-        $PHORUM['DB']->update_forum_stats(true);
+        phorum_db_update_forum_stats(true);
     }
 
 } else {
@@ -73,14 +76,13 @@ $dbmessage["meta"]["show_signature"] = $message["show_signature"];
 
 // we are doing the diffs here to know about changes for edit-counts
 // $origmessage loaded in check_permissions
-$diff_body    = phorum_api_diff($origmessage["body"], $message["body"]);
-$diff_subject = phorum_api_diff($origmessage["subject"], $message["subject"]);
+$diff_body    = phorum_diff( $origmessage["body"], $message["body"]);
+$diff_subject = phorum_diff($origmessage["subject"], $message["subject"]);
+
 
 if(!empty($diff_body) || !empty($diff_subject))
 {
-    $name = phorum_api_user_get_display_name(
-        $PHORUM["user"]["user_id"], NULL, PHORUM_FLAG_PLAINTEXT
-    );
+    $name = phorum_api_user_get_display_name($PHORUM["user"]["user_id"], NULL, PHORUM_FLAG_PLAINTEXT);
 
     $dbmessage["meta"]["edit_count"] = isset($message["meta"]["edit_count"])
                                      ? $message["meta"]["edit_count"]+1 : 1;
@@ -92,15 +94,17 @@ if(!empty($diff_body) || !empty($diff_subject))
     if(!empty($PHORUM["track_edits"])){
 
         $edit_data = array(
-            "diff_body"    => $diff_body,
+            "diff_body" => $diff_body,
             "diff_subject" => $diff_subject,
-            "time"         => $dbmessage["meta"]["edit_date"],
-            "user_id"      => $PHORUM["user"]["user_id"],
-            "message_id"   => $dbmessage['message_id'],
+            "time" => $dbmessage["meta"]["edit_date"],
+            "user_id" => $PHORUM["user"]["user_id"],
+            "message_id" => $dbmessage['message_id'],
         );
 
-        $PHORUM['DB']->add_message_edit($edit_data);
+        phorum_db_add_message_edit($edit_data);
+
     }
+
 }
 
 
@@ -122,7 +126,7 @@ foreach ($message["attachments"] as $info)
             "size"    => $info["size"],
         );
 
-        $PHORUM['DB']->file_link(
+        phorum_db_file_link(
             $info["file_id"],
             $message["message_id"],
             PHORUM_LINK_MESSAGE
@@ -153,15 +157,15 @@ if (!count($dbmessage["meta"]["attachments"])) {
  *     storing an edited message in the database.
  *
  * [input]
- *     An array containing message data and an optional parameter
- *     which holds the original message data (added in Phorum 5.2.15)
+ *     An array containing message data and an optional parameter which holds the
+ *     original message data (added in Phorum 5.2.15)
  *
  * [output]
  *     Same as input.
  *
  * [example]
  *     <hookcode>
- *     function phorum_mod_foo_before_edit($dbmessage)
+ *     function phorum_mod_foo_before_edit($dbmessage,$orig_message)
  *     {
  *         global $PHORUM;
  *
@@ -174,12 +178,10 @@ if (!count($dbmessage["meta"]["attachments"])) {
  *     }
  *     </hookcode>
  */
-if (isset($PHORUM["hooks"]["before_edit"])) {
-    $dbmessage = phorum_api_hook("before_edit", $dbmessage,$origmessage);
-}
-
-$PHORUM['DB']->update_message($message["message_id"], $dbmessage);
-
+// Update the data in the database and run pre and post editing hooks.
+if (isset($PHORUM["hooks"]["before_edit"]))
+    $dbmessage = phorum_hook("before_edit", $dbmessage, $origmessage);
+phorum_db_update_message($message["message_id"], $dbmessage);
 /*
  * [hook]
  *     after_edit
@@ -204,7 +206,7 @@ $PHORUM['DB']->update_message($message["message_id"], $dbmessage);
  *
  * [example]
  *     <hookcode>
- *     function phorum_mod_foo_after_edit($dbmessage)
+ *     function phorum_mod_foo_after_edit($dbmessage, $orig_message)
  *     {
  *         global $PHORUM;
  *
@@ -216,44 +218,40 @@ $PHORUM['DB']->update_message($message["message_id"], $dbmessage);
  *                 $dbmessage["subject"],
  *                 $PHORUM["DATA"]["LANG"]["mod_foo"]["MessageEditedBody"]
  *                 );
- *             $PHORUM['DB']->pm_send(
+ *             phorum_db_pm_send(
  *                 $PHORUM["DATA"]["LANG"]["mod_foo"]["MessageEditedSubject"],
  *                 $pm_message,
  *                 $dbmessage["user_id"]
  *                 );
  *         }
  *
- *         return $dbmessage;
+ *         return $dbmessage
  *     }
  *     </hookcode>
  */
-if (isset($PHORUM["hooks"]["after_edit"])) {
-    phorum_api_hook("after_edit", $dbmessage,$origmessage);
-}
+if (isset($PHORUM["hooks"]["after_edit"]))
+    phorum_hook("after_edit", $dbmessage,$origmessage);
 
 // remove the message from the cache if caching is enabled
 // no need to clear the thread-index as the message has only been changed
-if($PHORUM['cache_messages'])
-{
-    phorum_api_cache_remove(
-        'message', $PHORUM["forum_id"]."-".$message["message_id"]);
-
-    phorum_api_forums_increment_cache_version($PHORUM['forum_id']);
+if($PHORUM['cache_messages']) {
+    phorum_cache_remove('message',$message["message_id"]);
+    phorum_db_update_forum(array('forum_id'=>$PHORUM['forum_id'],'cache_version'=>($PHORUM['cache_version']+1)));
 }
 
 // Update children to the same sort setting.
 if (! $message["parent_id"] &&
     $origmessage["sort"] != $dbmessage["sort"])
 {
-    $messages = $PHORUM['DB']->get_messages($message["thread"], 0);
+    $messages = phorum_db_get_messages($message["thread"], 0);
     unset($messages["users"]);
     foreach($messages as $message_id => $msg){
         if($msg["sort"]!=$dbmessage["sort"] ||
            $msg["forum_id"] != $dbmessage["forum_id"]) {
             $msg["sort"]=$dbmessage["sort"];
-            $PHORUM['DB']->update_message($message_id, $msg);
+            phorum_db_update_message($message_id, $msg);
             if($PHORUM['cache_messages']) {
-                phorum_api_cache_remove('message',$PHORUM["forum_id"]."-".$message_id);
+                phorum_cache_remove('message',$message_id);
             }
         }
     }
@@ -263,14 +261,14 @@ if (! $message["parent_id"] &&
 if (! $message["parent_id"] &&
     $origmessage["closed"] != $dbmessage["closed"]) {
     if ($dbmessage["closed"]) {
-        $PHORUM['DB']->close_thread($message["thread"]);
+        phorum_db_close_thread($message["thread"]);
     } else {
-        $PHORUM['DB']->reopen_thread($message["thread"]);
+        phorum_db_reopen_thread($message["thread"]);
     }
 }
 
 // Update thread info.
-phorum_api_thread_update_metadata($message['thread']);
+phorum_update_thread_info($message['thread']);
 
 // Update thread subscription.
 if (isset($message["subscription"]))
@@ -318,7 +316,7 @@ if (isset($message["subscription"]))
 $PHORUM["posting_template"] = "message";
 $PHORUM["DATA"]["OKMSG"] = $PHORUM["DATA"]["LANG"]["MsgModEdited"];
 $PHORUM['DATA']["BACKMSG"] = $PHORUM['DATA']["LANG"]["BackToThread"];
-$PHORUM["DATA"]["URL"]["REDIRECT"] = phorum_api_url(
+$PHORUM["DATA"]["URL"]["REDIRECT"] = phorum_get_url(
     PHORUM_READ_URL,
     $message["thread"],
     $message["message_id"]
@@ -358,5 +356,5 @@ $PHORUM["DATA"]["URL"]["REDIRECT"] = phorum_api_url(
  *     </hookcode>
  */
 if (isset($PHORUM["hooks"]["posting_action_edit_post"]))
-    phorum_api_hook("posting_action_edit_post", $message);
+    phorum_hook("posting_action_edit_post", $message);
 ?>

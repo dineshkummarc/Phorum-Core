@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,50 +15,97 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-if (!defined("PHORUM_ADMIN")) return;
+if(!defined("PHORUM_ADMIN")) return;
 
-require_once './include/api/forums.php';
-require_once './include/api/system.php';
+include_once "./include/format_functions.php";
 
-$errors = array();
+$error='';
 
-// ----------------------------------------------------------------------
-// Handle posted form data
-// ----------------------------------------------------------------------
+if(count($_POST)){
 
-if (count($_POST))
-{
-    // Handling of checkboxes.
-    if (!isset($_POST['pub_perms'])) $_POST['pub_perms'] = array();
-    if (!isset($_POST['reg_perms'])) $_POST['reg_perms'] = array();
-    if (!isset($_POST['allow_email_notify'])) $_POST['allow_email_notify'] = 0;
+    // set the defaults and check values
 
-    // Build a forum data array based on the posted data.
-    $forum = array();
-    foreach ($_POST as $field => $value)
-    {
-        // Process permission bitmasks. These are stored in the form by means
-        // of separate checkboxes per bit. Here we translate them into
-        // a single permission value.
-        if ($field == 'pub_perms' || $field == 'reg_perms')
-        {
-            $bits = empty($value) ? array() : $value;
-            $bitmask = 0;
-            foreach ($bits as $bit => $dummy) $bitmask |= $bit;
-            $forum[$field] = $bitmask;
+    foreach($_POST as $field=>$value){
+
+        switch($field){
+
+            case "name":
+                if(empty($value) && $_POST["module"]!="forum_defaults"){
+                    $error.='Please fill in Title. ';
+                }
+                break;
+
+            case "list_length_flat":
+                $_POST[$field]=(int)$value;
+                if(empty($_POST[$field])){
+                    $_POST[$field]=30;
+                }
+                break;
+
+            case "list_length_threaded":
+                $_POST[$field]=(int)$value;
+                if(empty($_POST[$field])){
+                    $_POST[$field]=15;
+                }
+                break;
+
+            case "read_length":
+                $_POST[$field]=(int)$value;
+                if(empty($_POST[$field])){
+                    $_POST[$field]=10;
+                }
+                break;
+
+            case "max_attachments":
+                $_POST[$field]=(int)$value;
+                if(empty($_POST[$field])){
+                    $_POST["allow_attachment_types"]="";
+                    $_POST["max_attachment_size"]=0;
+                    $_POST["max_totalattachment_size"]=0;
+                }
+                break;
+
+            case "max_attachment_size":
+            case "max_totalattachment_size":
+                $_POST[$field]=(int)$value;
+                break;
+
+            case "display_fixed":
+                $_POST[$field]=(int)$value;
+                break;
+
+            case "pub_perms":
+                $permission = 0;
+                foreach($_POST["pub_perms"] as $perm=>$check){
+                    $permission = $permission | $perm;
+                }
+
+                $_POST["pub_perms"]=$permission;
+                break;
+
+            case "reg_perms":
+                $permission = 0;
+                foreach($_POST["reg_perms"] as $perm=>$check){
+                    $permission = $permission | $perm;
+                }
+
+                $_POST["reg_perms"]=$permission;
+                break;
+
+            case "inherit_id":
+                if( $_POST['inherit_id'] !== NULL && $_POST["inherit_id"] != "NULL" && $_POST['inherit_id'] != 0) {
+                    $forum_check_inherit =phorum_db_get_forums(intval($_POST["inherit_id"]));
+                    if( $forum_check_inherit[$_POST["inherit_id"]]["inherit_id"] || ($_POST["inherit_id"]==$_POST["forum_id"]) ) {
+                        $error.='Settings can&#x2019;t be inherited by this forum, because this forum already inherits settings from another forum. ';
+                    }
+                    if( $forum_check_inherit[$_POST["inherit_id"]]["inherit_id"] === 0) {
+                        $error.='Settings can&#x2019;t be inherited by this forum, because this forum already inherits the default settings. ';
+                    }
+                }
+                break;
         }
-        // All other fields are simply copied.
-        elseif (array_key_exists($field, $PHORUM['API']['forum_fields'])) {
-          $forum[$field] = $value;
-        }
-    }
-
-    // Was a title filled in for the forum?
-    if (!defined('PHORUM_DEFAULT_OPTIONS') && trim($forum['name']) == '') {
-        $errors[] = 'The "Title" field is empty. Please, fill in a title.';
     }
 
     if (empty($error)) {
@@ -110,196 +158,392 @@ if (count($_POST))
          *     }
          *     </hookcode>
          */
-        $error = phorum_api_hook("admin_editforum_form_save_after_defaults", $error);
+        $error = phorum_hook("admin_editforum_form_save_after_defaults", $error);
     }
 
-    // If there were no errors, then store the data in the database.
-    if (empty($errors))
-    {
-        // Store default settings.
-        if (defined('PHORUM_DEFAULT_OPTIONS'))
-        {
-            // Store the default settings in the database.
-            phorum_api_forums_save($forum, PHORUM_FLAG_DEFAULTS);
+    if(empty($error)){
+        unset($_POST["module"]);
+        unset($_POST["phorum_admin_token"]);
 
-            $url = phorum_admin_build_url(array('module=forum_defaults','okmsg='.rawurlencode('The default settings were successfully saved')), TRUE);
-
+        // handling vroots
+        if($_POST['parent_id'] > 0) {
+            $parent_folder=phorum_db_get_forums($_POST['parent_id']);
+            if($parent_folder[$_POST['parent_id']]['vroot'] > 0) {
+                $_POST['vroot'] = (int)$parent_folder[$_POST['parent_id']]['vroot'];
+            }
+        } else {
+            $_POST['vroot']=0;
         }
-        // Create or update a forum.
-        else
-        {
-            // Some statically assigned fields.
-            $forum['folder_flag'] = 0;
-            // For new forums.
-            if (!defined('PHORUM_EDIT_FORUM')) {
-                $forum['forum_id'] = NULL;
+
+        // if we received no perms, set them to 0 so they will get saved correctly.
+
+        if(!isset($_POST['pub_perms']) || empty($_POST["pub_perms"])) $_POST["pub_perms"]=0;
+        if(!isset($_POST['reg_perms']) || empty($_POST["reg_perms"])) $_POST["reg_perms"]=0;
+
+        $old_settings_arr = phorum_db_get_forums($_POST["forum_id"]);
+        $old_settings = array_shift($old_settings_arr);
+
+        if($_POST["forum_id"] && $old_settings["inherit_id"]!==NULL && $_POST["inherit_id"]=="NULL"){
+            $reload = true;
+        }
+
+        // inherit settings if we've set this and are not in the default forum options
+        if( !defined("PHORUM_DEFAULT_OPTIONS") && $_POST["inherit_id"]!="NULL"  && $_POST['inherit_id'] !== NULL ) {
+
+            // Load inherit forum settings
+            if($_POST["inherit_id"]==0){
+                $forum_settings_inherit[0]=$PHORUM["default_forum_options"];
+            } else {
+                $forum_settings_inherit = phorum_db_get_forums($_POST["inherit_id"]);
             }
 
-            // Store the forum data in the database.
-            phorum_api_forums_save($forum);
+            if( isset($forum_settings_inherit[$_POST["inherit_id"]]) ) {
 
-            // The message to show on the next page.
-            $okmsg = "Forum \"{$forum['name']}\" was successfully saved";
+                // slave settings
+                $forum_settings_inherit=$forum_settings_inherit[$_POST["inherit_id"]];
+                $forum_settings_inherit["forum_id"] = (int)$_POST["forum_id"];
+                $forum_settings_inherit["name"] = $_POST["name"];
+                $forum_settings_inherit["description"] = $_POST["description"];
+                $forum_settings_inherit["active"] = (int)$_POST["active"];
+                $forum_settings_inherit["parent_id"] = (int)$_POST["parent_id"];
+                $forum_settings_inherit["inherit_id"] = $_POST["inherit_id"];
 
-            // The URL to redirect to.
-            $url = phorum_admin_build_url(array('module=default',"parent_id=$forum[parent_id]", 'okmsg='.rawurlencode($okmsg)), TRUE);
+                if (isset($_POST['vroot'])) {
+                    $forum_settings_inherit['vroot'] = $_POST['vroot'];
+                } else {
+                    unset($forum_settings_inherit['vroot']);
+                }
+
+                // don't inherit these settings
+                unset($forum_settings_inherit["message_count"]);
+                unset($forum_settings_inherit["sticky_count"]);
+                unset($forum_settings_inherit["thread_count"]);
+                unset($forum_settings_inherit["last_post_time"]);
+                unset($forum_settings_inherit["display_order"]);
+                unset($forum_settings_inherit["cache_version"]);
+                unset($forum_settings_inherit["forum_path"]);
+
+
+                // we don't need to save the master forum
+                unset($forum_settings_inherit[$inherit_id]);
+
+                /*
+                 * [hook]
+                 *     admin_editforum_form_save_inherit
+                 *
+                 * [description]
+                 *     This hook can be used for intercepting requests where the
+                 *     forum settings get overriden with the inherited settings
+                 *     a forum is created or saved.
+                 *
+                 *     At this stage, the <literal>$_POST</literal> is still
+                 *     accessible in it's (almost) original form.
+                 *
+                 *     When this hook has run, <literal>$_POST</literal> will be
+                 *     replaced with the $forum_settings_inherit parameter !
+                 *
+                 * [category]
+                 *     Admin interface
+                 *
+                 * [when]
+                 *     After creating/saving a forum, after checking inherited settings
+                 *     <b>before</b> applying them.
+                 *
+                 * [input]
+                 *     The <literal>$forum_settings_inherit</literal> content.
+                 *
+                 * [output]
+                 *     Same as input.
+                 *
+                 * [example]
+                 *     <hookcode>
+                 *     function phorum_mod_foo_admin_editforum_form_save_inherit ($forum_settings_inherit)
+                 *     {
+                 *         return $forum_settings_inherit;
+                 *
+                 *     }
+                 *     </hookcode>
+                 */
+                $forum_settings_inherit = phorum_hook("admin_editforum_form_save_inherit", $forum_settings_inherit);
+
+                $_POST =$forum_settings_inherit;
+
+            } else {
+                $_POST["inherit_id"]="NULL";
+                unset($_POST["pub_perms"]);
+                unset($_POST["reg_perms"]);
+            }
+
         }
 
-        phorum_api_redirect($url);
+        if(defined("PHORUM_EDIT_FORUM") || defined("PHORUM_DEFAULT_OPTIONS")){
+
+            $forum_settings=$_POST;
+
+            if(defined("PHORUM_DEFAULT_OPTIONS")){
+                // these two will not be set if no options were checked
+                if(empty($forum_settings["pub_perms"])) $forum_settings["pub_perms"] = 0;
+                if(empty($forum_settings["reg_perms"])) $forum_settings["reg_perms"] = 0;
+                $res=phorum_db_update_settings(array("default_forum_options" => $forum_settings));
+            } else {
+                $res=phorum_db_update_forum($forum_settings);
+
+                // set/build the forum_path
+                $cur_forum_id = $forum_settings['forum_id'];
+                $built_paths = phorum_admin_build_path_array($cur_forum_id);
+                phorum_db_update_forum(array(
+                    'forum_id'   => $cur_forum_id,
+                    'forum_path' => $built_paths[$cur_forum_id]
+                ));
+            }
+
+            // setting the current settings to all forums/folders inheriting from this forum/default settings
+            $forum_inherit_settings =phorum_db_get_forums(false,false,false,intval($_POST["forum_id"]));
+            foreach($forum_inherit_settings as $inherit_setting) {
+                $forum_settings["forum_id"] =$inherit_setting["forum_id"];
+                // We don't need to inherit this settings
+                unset($forum_settings["name"]);
+                unset($forum_settings["description"]);
+                unset($forum_settings["active"]);
+                unset($forum_settings["parent_id"]);
+                unset($forum_settings["inherit_id"]);
+                unset($forum_settings["message_count"]);
+                unset($forum_settings["sticky_count"]);
+                unset($forum_settings["thread_count"]);
+                unset($forum_settings["last_post_time"]);
+                unset($forum_settings["vroot"]);
+
+                /*
+                 * [hook]
+                 *     admin_editforum_form_save_inherit_others
+                 *
+                 * [description]
+                 *     This hook gets called for every other forum which
+                 *     inherits settings from this forum and thus gets updated.
+                 *
+                 *     This can be used to prevent other settings from inherited.
+                 *
+                 *     Be cautious what you modify in $forum_settings, as it
+                 *     will be used without re-initialization in the loop going
+                 *     through all forums which inherit from this one!
+                 *
+                 * [category]
+                 *     Admin interface
+                 *
+                 * [when]
+                 *     When iterating over all forums which inherit from this
+                 *     forum.
+                 *
+                 * [input]
+                 *     The $forum_settings which will be applied to the
+                 *     inherited forums and the $inherit_setting .
+                 *
+                 * [output]
+                 *     $forum_settings, modified at wish, but be cautious, as it
+                 *     gets re-used during the loop
+                 *
+                 * [example]
+                 *     <hookcode>
+                 *     function phorum_mod_foo_admin_editforum_form_save_inherit_others ($forum_settings, $inherit_setting)
+                 *     {
+                 *         return $forum_settings;
+                 *
+                 *     }
+                 *     </hookcode>
+                 */
+                $forum_settings = phorum_hook("admin_editforum_form_save_inherit_others", $forum_settings, $inherit_setting);
+
+                $res_inherit =phorum_db_update_forum($forum_settings);
+            }
+
+        } else {
+            if(isset($_POST['forum_id'])) {
+                unset($_POST['forum_id']);
+            }
+            $res=phorum_db_add_forum($_POST);
+            // set/build the forum_path
+            $cur_forum_id=$res;
+            $built_paths = phorum_admin_build_path_array($cur_forum_id);
+            phorum_db_update_forum(array(
+                'forum_id'   => $cur_forum_id,
+                'forum_path' => $built_paths[$cur_forum_id]
+            ));
+        }
+
+        if($res){
+
+            if($reload){
+                $url = phorum_admin_build_url(array('module=editforum','forum_id='.$_POST['forum_id']), TRUE);
+            } else {
+                $url = phorum_admin_build_url(array('module=default','parent_id='.$_POST['parent_id']), TRUE);
+            }
+
+            phorum_redirect_by_url($url);
+            exit();
+        } else {
+            $error="Database error while adding/updating forum.";
+        }
     }
-    extract($forum);
-}
 
-// ----------------------------------------------------------------------
-// Handle initializing the form for various cases
-// ----------------------------------------------------------------------
+    foreach($_POST as $key=>$value){
+        $$key=$value;
+    }
+    $pub_perms=0;
+    if(isset($_POST["pub_perms"])) foreach($_POST["pub_perms"] as $perm=>$check){
+        $pub_perms = $pub_perms | $perm;
+    }
+    $reg_perms=0;
+    if(isset($_POST["reg_perms"])) foreach($_POST["reg_perms"] as $perm=>$check){
+        $reg_perms = $reg_perms | $perm;
+    }
 
-// Initialize the form for editing an existing forum.
-elseif (defined("PHORUM_EDIT_FORUM"))
-{
-    $forum_id = isset($_POST['forum_id']) ? $_POST['forum_id'] : $_GET['forum_id'];
-    $forum = phorum_api_forums_by_forum_id(
-        $forum_id, PHORUM_FLAG_INCLUDE_INACTIVE
-    );
-    extract($forum);
-}
-// Initialize the form for editing default settings.
-elseif (defined("PHORUM_DEFAULT_OPTIONS"))
-{
+
+} elseif(defined("PHORUM_EDIT_FORUM")) {
+
+    $forum_settings = phorum_db_get_forums($_REQUEST["forum_id"]);
+    extract($forum_settings[$_REQUEST["forum_id"]]);
+
+} else {
+
+    // this is either a new forum or we are editing the default options
     extract($PHORUM["default_forum_options"]);
-}
-// Initialize the form for creating a new forum.
-else
-{
-    $parent_id = $PHORUM['vroot'];
-    if (!empty($_GET['parent_id'])) {
-        $parent_id = (int) $_GET['parent_id'];
-    }
 
-    // Prepare a forum data array for initializing the form.
-    $forum = phorum_api_forums_save(array(
-        'forum_id'    => NULL,
-        'folder_flag' => 0,
-        'inherit_id'  => 0,
-        'parent_id'   => $parent_id,
-        'name'        => ''
-    ), PHORUM_FLAG_PREPARE);
-    extract($forum);
 }
 
-// ----------------------------------------------------------------------
-// Handle displaying the forum settings form
-// ----------------------------------------------------------------------
-
-if ($errors){
-    phorum_admin_error(join("<br/>", $errors));
+if($error){
+    phorum_admin_error($error);
 }
 
-if (isset($_GET['okmsg'])) {
-    phorum_admin_okmsg(htmlspecialchars($_GET['okmsg']));
-}
+include_once "./include/admin/PhorumInputForm.php";
 
-require_once './include/admin/PhorumInputForm.php';
 $frm = new PhorumInputForm ("", "post");
 
-if (defined("PHORUM_DEFAULT_OPTIONS")) {
+if(defined("PHORUM_DEFAULT_OPTIONS")){
     $frm->hidden("module", "forum_defaults");
-    $title = "Edit the default forum settings";
-} elseif(defined("PHORUM_EDIT_FORUM")) {
+    $frm->hidden("forum_id", 0);
+    $title="Default Forum Settings";
+} elseif(defined("PHORUM_EDIT_FORUM")){
     $frm->hidden("module", "editforum");
     $frm->hidden("forum_id", $forum_id);
-    $title = "Edit settings for forum \"$name\" (Id: $forum_id)";
+    $title="Edit Forum";
 } else {
     $frm->hidden("module", "newforum");
-    $title = "Create a new forum";
+    $title="Add A Forum";
+    $active = 1; // not set in the default forum options
 }
 
 $frm->addbreak($title);
 
-// Options that are only required when editing or creating a forum.
-if (!defined("PHORUM_DEFAULT_OPTIONS"))
-{
+if(!defined("PHORUM_DEFAULT_OPTIONS")){
+
     $frm->addrow("Forum Title", $frm->text_box("name", $name, 30,50));
 
     $frm->addrow("Forum Description", $frm->textarea("description", $description, $cols=60, $rows=10, "style=\"width: 100%;\""), "top");
 
-    $parent_id_options = phorum_api_forums_get_parent_id_options($forum_id);
-    $frm->addrow(
-        "Put this forum below folder",
-        $frm->select_tag('parent_id', $parent_id_options, $parent_id)
-    );
-
-    if ($vroot > 0) {
-        $frm->addrow(
-            "This forum is in the Virtual Root of:",
-            $folder_list[$vroot]
-        );
+    $folder_list=phorum_get_folder_info();
+    $frm->addrow("Folder", $frm->select_tag("parent_id", $folder_list, $parent_id));
+    if($vroot > 0) {
+        $frm->addrow("This forum is in the Virtual Root of:",$folder_list[$vroot]);
     }
 
-    $row = $frm->addrow(
-        "Make this forum visible in the forum index?",
-        $frm->select_tag("active", array("No", "Yes"), $active)
-    );
-    $frm->addhelp($row, "Make this forum visible in the forum index?",
-        'If this option is set to "No", then this forum will not be visible
-         in the forum index. This is mainly an option for temporarily keeping
-         a forum hidden to your users (e.g. while you are creating and
-         configuring a forum or for testing out features).<br/>
-         <br/>
-         <b>This is not a security option!</b><br/>
-         <br/>
-         A forum that is not visible is still accessible by all users
-         that have at least read access for it. If you need a forum that is
-         only accessible by some of your users, then use the permission system
-         for that. Revoke all rights from both public and registered users in
-         the forum settings and use group or user permissions to grant access
-         to the users.'
-    );
 
-    // If we're inheriting settings from a different forum,
-    // then disable the inherited fields in the input.
-    $disabled_form_input = '';
-    if ($inherit_id != -1) {
-        $disabled_form_input = 'disabled="disabled"';
+    $frm->addrow("Visible", $frm->select_tag("active", array("No", "Yes"), $active));
+
+    /*
+     * [hook]
+     *     admin_editforum_section_edit_forum
+     *
+     * [description]
+     *     Allow injecting custom field logic right before the (possible
+     *     inherited) permissions/settings begin.
+     *
+     * [category]
+     *     Admin interface
+     *
+     * [when]
+     *     Editing an empty or new forum, right after the first section.
+     *
+     * [input]
+     *     An PhorumInputForm object
+     *
+     * [output]
+     *     Nothing
+     *
+     * [example]
+     *     <hookcode>
+     *     function phorum_mod_foo_admin_editforum_section_edit_forum ($frm)
+     *     {
+     *     }
+     *     </hookcode>
+     */
+    phorum_hook("admin_editforum_section_edit_forum", $frm);
+
+    // Edit + inherit_id exists
+    if(defined("PHORUM_EDIT_FORUM") && strlen($inherit_id)>0 ) {
+
+        if($inherit_id!=0){
+            $forum_settings_inherit = phorum_db_get_forums($inherit_id);
+        }
+        // inherit_forum not exists
+        if( $inherit_id==0 || isset($forum_settings_inherit[$inherit_id]) ) {
+            $disabled_form_input="disabled=\"disabled\"";
+        } else {
+            $inherit_id ="0";
+            unset($forum_settings_inherit);
+        }
+    } else {
+        unset($disabled_form_input);
     }
 
     $frm->addbreak("Inherit Forum Settings");
 
-    // First check if the settings for this forum are inherited by one or
-    // more other forums and/or folders. Inherited inheritance is not
-    // allowed, so if this is the case, choosing a forum to inherit from
-    // is not allowed.
-    $disabled_form_input_inherit = '';
-    $add_inherit_text="";
-    if ($forum_id) {
-        $slaves = phorum_api_forums_by_inheritance($forum_id);
-        if (!empty($slaves))
-        {
-            $disabled_form_input_inherit='disabled="disabled"';
+    $forum_list=phorum_get_forum_info(1);
 
-            $add_inherit_text="<br />You cannot let this forum inherit its " .
-                              "settings from another forum, because the " .
-                              "following forums and or folders inherit from " .
-                              "the current forum already:<br /><ul>\n";
-            foreach($slaves as $id => $data) {
-                array_shift($data['forum_path']);
-                $edit_url = phorum_admin_build_url(array('module=edit'.($data['folder_flag'] ? 'folder' : 'forum'),"forum_id=$id"));
-                $add_inherit_text .= "<li><a href=\"$edit_url\">" .
-                                     implode(" / ", $data['forum_path']) .
-                                     "</li>\n";
-            }
-            $add_inherit_text.="</ul>\n";
+    $forum_list["0"] ="Use Default Forum Settings";
+    $forum_list["NULL"] ="None - I want to customize this forum's settings";
+
+    // Remove this Forum
+    if($forum_id>0){
+        unset($forum_list[$forum_id]);
+    }
+
+    $dbforums=phorum_db_get_forums();
+
+    // remove forums that inherit
+    foreach($dbforums as $dbforum_id=>$forum){
+        if($forum["inherit_id"] !== NULL){
+            unset($forum_list[$dbforum_id]);
         }
     }
 
-    $inherit_id_options = phorum_api_forums_get_inherit_id_options($forum_id);
-    $row = $frm->addrow(
-        "Inherit the settings below this option from",
-        $frm->select_tag(
-            "inherit_id", $inherit_id_options, $inherit_id,
-            $disabled_form_input_inherit
-        ) . $add_inherit_text
-    );
+    // Check for Slaves
+    if( intval($forum_id) ) {
+
+        $forum_inherit_settings=phorum_db_get_forums(false,false,false,intval($forum_id));
+        if( count($forum_inherit_settings)>0 ) {
+            $disabled_form_input_inherit="disabled=\"disabled\"";
+        }
+    }
+
+    // set to NULL if inherit is disabled
+    if($inherit_id=="" && $inherit_id!==0) $inherit_id="NULL";
+
+    $add_inherit_text="";
+    if(!empty($disabled_form_input_inherit)) {
+        $add_inherit_text="<br />You can't inherit from another forum as these forums inherit from the current forum already:<br /><ul>\n";
+        foreach($forum_inherit_settings as $set_id => $set_data) {
+            $add_inherit_text.="<li>".$set_data['name']." ( Id: $set_id ) </li>\n";
+        }
+        $add_inherit_text.="</ul>\n";
+    }
+
+    $row=$frm->addrow("Inherit Settings from Forum", $frm->select_tag("inherit_id", $forum_list, $inherit_id, $disabled_form_input_inherit).$add_inherit_text);
+
+    // Set Settings from inherit forum
+    if( $forum_settings_inherit ) {
+        $forum_settings =$forum_settings_inherit;
+        extract($forum_settings[$inherit_id]);
+    }
 }
 
 $frm->addbreak("Moderation / Permissions");
@@ -310,31 +554,33 @@ $frm->addhelp($row, "Moderate Messages", "This setting determines whether messag
 
 $frm->addrow("Email Messages To Moderators", $frm->select_tag("email_moderators", array(PHORUM_EMAIL_MODERATOR_OFF=>"Disabled", PHORUM_EMAIL_MODERATOR_ON=>"Enabled"), $email_moderators, $disabled_form_input));
 
+$row = $frm->addrow("Allow Email Notification for following topics", $frm->select_tag("allow_email_notify", array("No", "Yes"), $allow_email_notify, $disabled_form_input));
+$frm->addhelp($row, "Allow Email Notification", "This option determines if it is possible for users to use email notification when following topics within this forum.<br /><br />This does not only apply to enabling email notification at post time, but it also applies to clicking on \"".$PHORUM["DATA"]["LANG"]["FollowThread"]."\" from the message read page and to managing subscriptions from the user control center.");
+
 $pub_perm_frm = $frm->checkbox("pub_perms[".PHORUM_USER_ALLOW_READ."]", 1, "Read", $pub_perms & PHORUM_USER_ALLOW_READ, $disabled_form_input)."&nbsp;&nbsp;".
 $frm->checkbox("pub_perms[".PHORUM_USER_ALLOW_REPLY."]", 1, "Reply", $pub_perms & PHORUM_USER_ALLOW_REPLY, $disabled_form_input)."&nbsp;&nbsp;".
 $frm->checkbox("pub_perms[".PHORUM_USER_ALLOW_NEW_TOPIC."]", 1, "Create&nbsp;New&nbsp;Topics", $pub_perms & PHORUM_USER_ALLOW_NEW_TOPIC, $disabled_form_input)."<br />".
 $frm->checkbox("pub_perms[".PHORUM_USER_ALLOW_ATTACH."]", 1, "Attach&nbsp;Files", $pub_perms & PHORUM_USER_ALLOW_ATTACH, $disabled_form_input);
 
-$frm->addrow("Public Anonymous Users", $pub_perm_frm);
+$frm->addrow("Public Users", $pub_perm_frm);
 
 $reg_perm_frm = $frm->checkbox("reg_perms[".PHORUM_USER_ALLOW_READ."]", 1, "Read", $reg_perms & PHORUM_USER_ALLOW_READ, $disabled_form_input)."&nbsp;&nbsp;".
 $frm->checkbox("reg_perms[".PHORUM_USER_ALLOW_REPLY."]", 1, "Reply", $reg_perms & PHORUM_USER_ALLOW_REPLY, $disabled_form_input)."&nbsp;&nbsp;".
 $frm->checkbox("reg_perms[".PHORUM_USER_ALLOW_NEW_TOPIC."]", 1, "Create&nbsp;New&nbsp;Topics", $reg_perms & PHORUM_USER_ALLOW_NEW_TOPIC, $disabled_form_input)."<br />".
 $frm->checkbox("reg_perms[".PHORUM_USER_ALLOW_EDIT."]", 1, "Edit&nbsp;Their&nbsp;Posts", $reg_perms & PHORUM_USER_ALLOW_EDIT, $disabled_form_input)."&nbsp;&nbsp;".
-$frm->checkbox("reg_perms[".PHORUM_USER_ALLOW_ATTACH."]", 1, "Attach&nbsp;Files", $reg_perms & PHORUM_USER_ALLOW_ATTACH, $disabled_form_input) . "<br/>".
-$frm->checkbox('allow_email_notify', 1, 'Allow email notification for following topics', $allow_email_notify, $disabled_form_input);
+$frm->checkbox("reg_perms[".PHORUM_USER_ALLOW_ATTACH."]", 1, "Attach&nbsp;Files", $reg_perms & PHORUM_USER_ALLOW_ATTACH, $disabled_form_input);
 
 $row=$frm->addrow("Registered Users", $reg_perm_frm);
 
-$frm->addhelp($row, "Registered Users", "These are the permissions that apply to registered users. Note that these permissions can be overridden by permissions that were granted directly to the user or to a group to which a user belongs.");
+$frm->addhelp($row, "Registered Users", "These settings do not apply to users that are granted permissions directly via the user admin or via a group permissions.");
 
 $frm->addbreak("Display Settings");
 
 $frm->addrow("Fixed Display-Settings (user can't override them)", $frm->select_tag("display_fixed", array("No", "Yes"), $display_fixed, $disabled_form_input));
 
-$frm->addrow("Template", $frm->select_tag("template", phorum_api_template_list(TRUE), $template, $disabled_form_input));
+$frm->addrow("Template", $frm->select_tag("template", phorum_get_template_info(), $template, $disabled_form_input));
 
-$frm->addrow("Language", $frm->select_tag("language", phorum_api_lang_list(TRUE), $language, $disabled_form_input));
+$frm->addrow("Language", $frm->select_tag("language", phorum_get_language_info(), $language, $disabled_form_input));
 
 $frm->addrow("List View", $frm->select_tag("threaded_list", array("Flat", "Threaded"), $threaded_list, $disabled_form_input));
 $frm->addrow("Read View", $frm->select_tag("threaded_read", array("Flat", "Threaded", "Hybrid"), $threaded_read, $disabled_form_input));
@@ -345,7 +591,7 @@ $frm->addrow("Move Threads On Reply", $frm->select_tag("float_to_top", array("No
 $frm->addrow("Message List Length (Flat Mode)", $frm->text_box("list_length_flat", $list_length_flat, 10, false, false, $disabled_form_input));
 $frm->addrow("Message List Length (Threaded Mode, Nr. of Threads)", $frm->text_box("list_length_threaded", $list_length_threaded, 10, false, false, $disabled_form_input));
 
-$frm->addrow("Read Page Length", $frm->text_box("read_length", $read_length, 10, false, false, $disabled_form_input));
+$frm->addrow("Read Page Length", $frm->text_box("read_length", $read_length, 10, false, false, $disabled_form_input, $disabled_form_input));
 
 $frm->addrow("Display IP Addresses <small>(note: admins always see it)</small>", $frm->select_tag("display_ip_address", array("No", "Yes"), $display_ip_address, $disabled_form_input));
 
@@ -360,8 +606,8 @@ $frm->addhelp($row, "Count views per thread for non-threaded list",
      its view count updated, although multiple messages might show).
      Additionally, if the list view is flat and the read view is threaded, the
      view count on the list view will only show how often the first message
-     in the thread was viewed.<br/>
-     <br/>
+     in the thread was viewed.<br />
+     <br />
      With this option enabled, a separate view counter will be updated
      for the full thread when viewing any of the read pages for that thread.
      For non-threaded list views, this counter will then be used as the view
@@ -379,9 +625,9 @@ $frm->addrow("Number Allowed (0 to disable)", $frm->text_box("max_attachments", 
 
 $frm->addrow("Allowed Files (eg: gif;jpg;png, empty for any)", $frm->text_box("allow_attachment_types", $allow_attachment_types, 10, false, false, $disabled_form_input));
 
-list ($system_max_upload, $php_max_upload, $db_max_upload) =
-    phorum_get_system_max_upload();
-$max_size = phorum_api_format_filesize($system_max_upload);
+require_once('./include/upload_functions.php');
+$system_max_upload = phorum_get_system_max_upload();
+$max_size = phorum_filesize($system_max_upload[0]);
 
 $row=$frm->addrow("Max File Size In KB ($max_size maximum)", $frm->text_box("max_attachment_size", $max_attachment_size, 10, false, false, $disabled_form_input));
 $frm->addhelp($row, "Max File Size", "This is the maximum that one uploaded file can be.  If you see a maximum here, that is the maximum imposed by either your PHP installation, database server or both.  Leaving this field as 0 will use this maximum.");
@@ -391,98 +637,3 @@ $frm->addrow("Max cumulative File Size In KB (0 for unlimited)", $frm->text_box(
 $frm->show();
 
 ?>
-
-<script type="text/javascript">
-//<![CDATA[
-
-// Handle changes to the setting inheritance select list.
-$PJ('select[name=inherit_id]').change(function updateInheritedFields()
-{
-    var inherit = $PJ('select[name=inherit_id]').val();
-
-    // No inheritance. All fields will be made read/write.
-    if (inherit == -1) {
-        updateInheritedSettings(null);
-    }
-    // An inheritance option is selected. Retrieve the settings for
-    // the selection option and update the form with those. All
-    // inherited settings are made read only.
-    else {
-        Phorum.call({
-            call: 'getforumsettings',
-            forum_id: inherit,
-            cache_id: 'forum_settings_' + inherit,
-            onSuccess: function (data) {
-                updateInheritedSettings(data);
-            },
-            onFailure: function (err) {
-                alert("Could not retrieve inherited settings: " + err);
-            }
-        });
-    }
-});
-
-function updateInheritedSettings(data)
-{
-    // Find the settings form.
-    $PJ('input.input-form-submit').parents('form').each(function (idx, frm) {
-        // Loop over all form fields.
-        $PJ(frm).find('input[type!=hidden],textarea,select')
-            .each(function (idx, f) {
-
-                $f = $PJ(f);
-
-                // Skip the form submit button.
-                if ($f.hasClass('input-form-submit')) return;
-
-                // SKip fields that are not inherited.
-                if (f.name == 'name' ||
-                    f.name == 'description' ||
-                    f.name == 'parent_id' ||
-                    f.name == 'active' ||
-                    f.name == 'inherit_id') return;
-
-                // When no data is provided, then we make the field read/write.
-                if (!data)
-                {
-                    $PJ(f).removeAttr('disabled');
-                }
-                // Data is provided. Fill the default value and make the
-                // field read only.
-                else
-                {
-                    // Some browsers will not update the field when it
-                    // is disabled. Therefor, we temporarily enable it here.
-                    $PJ(f).removeAttr('disabled');
-
-                    // Special handling for bit-wise permission fields.
-                    var m = f.name.match(/^(\w+)\[(\d+)\]$/);
-                    if (m) {
-                        var checked = 0;
-                        if (data[m[1]] !== undefined) {
-                            if ((m[2] & data[m[1]]) == m[2]) {
-                                checked = 1;
-                            }
-                        }
-                        if (checked) {
-                            $f.attr('checked', 'checked');
-                        } else {
-                            $f.removeAttr('checked');
-                        }
-                    }
-                    // Handling for standard fields.
-                    else {
-                        if (data[f.name] !== undefined) {
-                            $f.val(data[f.name]);
-                        }
-                    }
-
-                    // Make the field read only.
-                    $PJ(f).attr('disabled', 'disabled');
-                }
-            });
-        });
-}
-// ]]>
-</script>
-

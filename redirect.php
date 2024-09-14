@@ -1,4 +1,5 @@
 <?php
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 //   Copyright (C) 2016  Phorum Development Team                              //
@@ -14,7 +15,6 @@
 //                                                                            //
 //   You should have received a copy of the Phorum License                    //
 //   along with this program.                                                 //
-//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
 // Redirect to another page. This is used for working around an MSIE bug
@@ -23,13 +23,14 @@
 // enctype="multipart/mixed" form... *sigh*.
 
 define('phorum_page', 'redirect');
-require_once './common.php';
 
-if (isset($PHORUM["args"]["phorum_redirect_to"])) {
+require_once("./common.php");
+
+if (isset($PHORUM["args"]["phorum_redirect_to"]) && strpos($PHORUM["args"]["phorum_redirect_to"], $PHORUM['http_path']) === 0) {
     $redir = urldecode($PHORUM["args"]["phorum_redirect_to"]);
-    phorum_api_redirect($redir);
+    phorum_redirect_by_url($redir);
 } else {
-    phorum_api_redirect(PHORUM_INDEX_URL);
+    header("Location: index.php");
 }
 
 ?>
